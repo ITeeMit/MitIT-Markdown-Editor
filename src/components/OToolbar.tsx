@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   Download, 
-  Upload, 
   FileText, 
   Save, 
   FolderOpen,
@@ -92,36 +91,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
     }
   };
 
-  const handleImport = async () => {
-    try {
-      setIsExporting('import');
-      const { content, filename } = await ExportService.importMarkdownFile();
-      
-      // Create new document with imported content
-      const newDoc = {
-        FTMdcTitle: filename || 'Imported Document',
-        FTMdcContent: content,
-        FTMdcTags: ['imported'],
-        FNMdcSize: content.length,
-        FBMdcFavorite: false,
-        FDMdcCreated: new Date(),
-        FDMdcModified: new Date(),
-        // Legacy properties for compatibility
-        title: filename || 'Imported Document',
-        content: content,
-        tags: ['imported']
-      };
-      
-      await createDocument(newDoc);
-    } catch (error) {
-      console.error('Failed to import file:', error);
-      if (error instanceof Error && error.message !== 'No file selected') {
-        alert('Failed to import file');
-      }
-    } finally {
-      setIsExporting(null);
-    }
-  };
+
 
   const handleExportMarkdown = async () => {
     if (!currentDocument) {
@@ -408,12 +378,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
           loading={isExporting === 'save'}
         />
         
-        <ToolbarButton
-          onClick={handleImport}
-          icon={<Upload className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
-          title="Import Markdown File"
-          loading={isExporting === 'import'}
-        />
+
       </div>
 
       {/* Separator */}

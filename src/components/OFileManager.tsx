@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Plus, 
   FileText, 
@@ -7,7 +7,8 @@ import {
   Calendar,
   Tag,
   MoreVertical,
-  Edit3
+  Edit3,
+  Upload
 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
 import { MarkdownDocument } from '@/types';
@@ -29,6 +30,8 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter documents based on search term
   const filteredDocuments = documents.filter(doc => 
@@ -97,13 +100,81 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
     return content.length > 100 ? content.substring(0, 100) + '...' : content;
   };
 
+  // Handle file upload
+  const handleFileUpload = (files: FileList | null) => {
+    if (!files) return;
+    
+    Array.from(files).forEach(file => {
+      if (file.type === 'text/markdown' || file.name.endsWith('.md')) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const content = e.target?.result as string;
+          const fileName = file.name.replace(/\.md$/, '');
+          
+          try {
+            await createDocument({
+              FTMdcTitle: fileName,
+              FTMdcContent: content,
+              FTMdcTags: [],
+              FNMdcSize: content.length,
+              FBMdcFavorite: false,
+              FDMdcCreated: new Date(),
+              FDMdcModified: new Date(),
+              // Legacy properties for compatibility
+              title: fileName,
+              content: content,
+              tags: []
+            });
+          } catch (error) {
+            console.error('Failed to upload document:', error);
+            alert(`Failed to upload ${file.name}`);
+          }
+        };
+        reader.readAsText(file);
+      } else {
+        alert(`${file.name} is not a markdown file. Please upload .md files only.`);
+      }
+    });
+  };
+
+  // Handle drag and drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    handleFileUpload(e.dataTransfer.files);
+  };
+
+  // Handle file input change
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFileUpload(e.target.files);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
-    <div className={`
-      flex flex-col h-full
-      bg-white dark:bg-gray-900
-      border-r border-gray-200 dark:border-gray-700
-      ${className}
-    `}>
+    <div 
+      className={`
+        flex flex-col h-full
+        bg-white dark:bg-gray-900
+        border-r border-gray-200 dark:border-gray-700
+        ${isDragOver ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600' : ''}
+        ${className}
+      `}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Header */}
       <div className="
         p-4 border-b border-gray-200 dark:border-gray-700
@@ -114,20 +185,46 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
             Documents
           </h2>
           
-          <button
-            onClick={() => setIsCreating(true)}
-            className="
-              flex items-center gap-1 px-3 py-1
-              bg-blue-500 hover:bg-blue-600
-              text-white text-sm rounded-lg
-              transition-colors duration-200
-            "
-            title="Create New Document"
-          >
-            <Plus className="w-4 h-4" />
-            New
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="
+                flex items-center gap-1 px-3 py-1
+                bg-green-500 hover:bg-green-600
+                text-white text-sm rounded-lg
+                transition-colors duration-200
+              "
+              title="Upload Markdown File"
+            >
+              <Upload className="w-4 h-4" />
+              Upload
+            </button>
+            
+            <button
+              onClick={() => setIsCreating(true)}
+              className="
+                flex items-center gap-1 px-3 py-1
+                bg-blue-500 hover:bg-blue-600
+                text-white text-sm rounded-lg
+                transition-colors duration-200
+              "
+              title="Create New Document"
+            >
+              <Plus className="w-4 h-4" />
+              New
+            </button>
+          </div>
         </div>
+        
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md,.markdown,text/markdown"
+          multiple
+          onChange={handleFileInputChange}
+          className="hidden"
+        />
         
         {/* Search */}
         <div className="relative">
@@ -206,8 +303,29 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
         </div>
       )}
 
+      {/* Drag & Drop Overlay */}
+      {isDragOver && (
+        <div className="
+          absolute inset-0 z-10
+          bg-blue-100/80 dark:bg-blue-900/40
+          border-2 border-dashed border-blue-400 dark:border-blue-500
+          flex items-center justify-center
+          backdrop-blur-sm
+        ">
+          <div className="text-center">
+            <Upload className="w-12 h-12 mx-auto mb-4 text-blue-500 dark:text-blue-400" />
+            <p className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+              Drop markdown files here
+            </p>
+            <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+              Supports .md and .markdown files
+            </p>
+          </div>
+        </div>
+      )}
+      
       {/* Documents List */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto relative">
         {filteredDocuments.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
             <FileText className="w-12 h-12 mb-4 opacity-50" />

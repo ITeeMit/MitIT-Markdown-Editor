@@ -8,7 +8,7 @@ interface OPreviewPanelProps {
 }
 
 const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
-  const { currentDocument } = useEditorStore();
+  const { currentDocument, content } = useEditorStore();
   const [isVisible, setIsVisible] = useState(true);
 
   // Configure marked options for better rendering
@@ -21,18 +21,19 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
 
   // Convert markdown to HTML
   const convertedHtml = useMemo(() => {
-    const content = currentDocument?.FTMdcContent || currentDocument?.content;
-    if (!content) {
+    // ใช้ content จาก store เป็นหลัก เพื่อให้ live preview ทำงานแบบ real-time
+    const markdownContent = content || currentDocument?.FTMdcContent || currentDocument?.content || '';
+    if (!markdownContent) {
       return '<div class="empty-state"><p>Start writing to see the preview...</p></div>';
     }
-
+    
     try {
-      return marked(content);
+      return marked(markdownContent);
     } catch (error) {
       console.error('Markdown parsing error:', error);
       return '<div class="error-state"><p>Error parsing markdown</p></div>';
     }
-  }, [currentDocument?.FTMdcContent, currentDocument?.content]);
+  }, [content, currentDocument?.FTMdcContent, currentDocument?.content]);
 
   // Custom CSS for preview styling
   const previewStyles = `
