@@ -7,17 +7,18 @@ import {
   Calendar,
   Tag,
   MoreVertical,
-  Edit3,
-  Upload
+  Upload,
+  HelpCircle
 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
 import { MarkdownDocument } from '@/types';
 
 interface OFileManagerProps {
   className?: string;
+  createWelcomeDocument?: () => void;
 }
 
-const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
+const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelcomeDocument }) => {
   const { 
     documents, 
     currentDocument, 
@@ -181,11 +182,23 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
         bg-gray-50 dark:bg-gray-800
       ">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Documents
-          </h2>
-          
           <div className="flex items-center gap-2">
+            {createWelcomeDocument && (
+              <button
+                onClick={createWelcomeDocument}
+                className="
+                  flex items-center gap-1 px-3 py-1
+                  bg-purple-500 hover:bg-purple-600
+                  text-white text-sm rounded-lg
+                  transition-colors duration-200
+                "
+                title="Show Welcome Document"
+              >
+                <HelpCircle className="w-4 h-4" />
+                Help
+              </button>
+            )}
+            
             <button
               onClick={() => fileInputRef.current?.click()}
               className="
@@ -318,7 +331,7 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
               Drop markdown files here
             </p>
             <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-              Supports .md and .markdown files
+              Supports .md and .`` files
             </p>
           </div>
         </div>

@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  Download, 
   FileText, 
   Save, 
-  FolderOpen,
   FileSpreadsheet,
   Loader2,
   Printer,
@@ -20,7 +18,7 @@ import {
   Code,
   Code2,
   Type,
-  Palette
+  FileTextIcon
 } from 'lucide-react';
 import { marked } from 'marked';
 import { ExportService } from '@/utils/exportUtils';
@@ -42,16 +40,13 @@ const OToolbar: React.FC<OToolbarProps> = ({
   className = '',
   onFormatText,
   fontSize = 14,
-  fontFamily = 'monospace',
   onFontSizeChange,
   onFontFamilyChange
 }) => {
   const { 
     currentDocument, 
     documents, 
-    saveDocument, 
-    createDocument,
-    updateDocument 
+    saveDocument
   } = useEditorStore();
   
   const [isExporting, setIsExporting] = useState<string | null>(null);
@@ -90,8 +85,6 @@ const OToolbar: React.FC<OToolbarProps> = ({
       }
     }
   };
-
-
 
   const handleExportMarkdown = async () => {
     if (!currentDocument) {
@@ -313,6 +306,27 @@ const OToolbar: React.FC<OToolbarProps> = ({
     } catch (error) {
       console.error('Failed to export PDF:', error);
       alert('เกิดข้อผิดพลาดในการส่งออก PDF');
+    } finally {
+      setIsExporting(null);
+    }
+  };
+
+  const handleExportDOCX = async () => {
+    if (!currentDocument) {
+      alert('ไม่มีเนื้อหาสำหรับส่งออก DOCX');
+      return;
+    }
+
+    try {
+      setIsExporting('docx');
+      await ExportService.exportAsDOCX(
+        currentDocument.content,
+        currentDocument.title,
+        `${currentDocument.title}.docx`
+      );
+    } catch (error) {
+      console.error('Failed to export DOCX:', error);
+      alert('เกิดข้อผิดพลาดในการส่งออก DOCX');
     } finally {
       setIsExporting(null);
     }
@@ -553,6 +567,14 @@ const OToolbar: React.FC<OToolbarProps> = ({
           title="ส่งออกเป็น PDF (รองรับภาษาไทยและ Markdown)"
           disabled={!currentDocument}
           loading={isExporting === 'pdf'}
+        />
+        
+        <ToolbarButton
+          onClick={handleExportDOCX}
+          icon={<FileTextIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
+          title="ส่งออกเป็น DOCX"
+          disabled={!currentDocument}
+          loading={isExporting === 'docx'}
         />
         
         <ToolbarButton

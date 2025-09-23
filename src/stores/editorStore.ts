@@ -71,12 +71,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       // Load documents
       await get().loadAllDocuments();
       
-      // Load welcome document if no current document
-      const documents = get().documents;
-      if (documents.length > 0 && !get().currentDocument) {
-        const welcomeDoc = documents.find(doc => doc.title.includes('Welcome')) || documents[0];
-        await get().loadDocument(welcomeDoc.id);
-      }
     } catch (error) {
       console.error('Failed to initialize store:', error);
     }

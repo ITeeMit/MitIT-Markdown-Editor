@@ -34,27 +34,7 @@ class MarkdownDB extends Dexie {
         });
       }
       
-      // Add welcome document if no documents exist
-      const documentsCount = await this.documents.count();
-      if (documentsCount === 0) {
-        await this.documents.add({
-          FNMdcId: 1,
-          FTMdcTitle: 'Welcome to MitIT Markdown Editor',
-          FTMdcContent: '# Welcome to MitIT Markdown Editor\n\nStart writing your markdown here...\n\n## Features\n\n- Real-time preview\n- Auto-save functionality\n- Export to PDF and Excel\n- Dark/Light theme\n- Offline support\n\nEnjoy writing! 📝',
-          FDMdcCreated: new Date(),
-          FDMdcModified: new Date(),
-          FNMdcSize: 0,
-          FTMdcTags: ['welcome', 'tutorial'],
-          FBMdcFavorite: false,
-          // Legacy properties for compatibility
-          id: 'welcome-doc',
-          title: 'Welcome to MitIT Markdown Editor',
-          content: '# Welcome to MitIT Markdown Editor\n\nStart writing your markdown here...\n\n## Features\n\n- Real-time preview\n- Auto-save functionality\n- Export to PDF and Excel\n- Dark/Light theme\n- Offline support\n\nEnjoy writing! 📝',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          tags: ['welcome', 'tutorial']
-        });
-      }
+      // No automatic creation of welcome document
     });
   }
 }
@@ -116,6 +96,7 @@ export class DatabaseService {
         autoSaveInterval: 5000
       };
     }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, ...appSettings } = settings;
     return appSettings;
   }

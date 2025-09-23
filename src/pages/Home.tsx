@@ -5,161 +5,22 @@ import OToolbar from '@/components/OToolbar';
 import OFileManager from '@/components/OFileManager';
 import OMarkdownEditor from '@/components/OMarkdownEditor';
 import OPreviewPanel from '@/components/OPreviewPanel';
+import ResizablePanel from '@/components/ResizablePanel';
+import CollapsibleSidebar from '@/components/CollapsibleSidebar';
 import { Menu, X } from 'lucide-react';
 
 const Home: React.FC = () => {
-  const { initializeDatabase, documents, createDocument, currentDocument, setContent } = useEditorStore();
+  const { initializeDatabase, createDocument, currentDocument, setContent } = useEditorStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [fontSize, setFontSize] = useState(14);
   const [fontFamily, setFontFamily] = useState('Inter, system-ui, sans-serif');
 
-  // Initialize database and create default document if needed
+  // Initialize database
   useEffect(() => {
     const initialize = async () => {
       try {
         await initializeDatabase();
-        
-        // Create a welcome document if no documents exist
-        if (documents.length === 0) {
-          await createDocument({
-            FTMdcTitle: 'Welcome to MitIT Markdown Editor',
-            FTMdcContent: `# Welcome to Markdown Editor
-
-This is a powerful markdown editor with real-time preview capabilities.
-
-## Features
-
-- **Real-time Preview**: See your markdown rendered as HTML instantly
-- **Auto-save**: Your work is automatically saved as you type
-- **Export Options**: Export to PDF, Excel, or Markdown files
-- **Import Support**: Import existing markdown files
-- **Dark Mode**: Toggle between light and dark themes
-- **Offline Support**: Works offline with PWA capabilities
-
-## Getting Started
-
-1. Start typing in the editor panel on the left
-2. See the live preview on the right
-3. Use the toolbar to save, import, or export your documents
-4. Create new documents using the file manager
-
-## Markdown Syntax Examples
-
-### Headers
-\`\`\`
-# H1 Header
-## H2 Header
-### H3 Header
-\`\`\`
-
-### Lists
-- Unordered list item 1
-- Unordered list item 2
-  - Nested item
-
-1. Ordered list item 1
-2. Ordered list item 2
-
-### Code
-Inline \`code\` and code blocks:
-
-\`\`\`javascript
-function hello() {
-  console.log('Hello, World!');
-}
-\`\`\`
-
-### Links and Images
-[Link text](https://example.com)
-![Alt text](https://via.placeholder.com/300x200)
-
-### Tables
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-| Row 1    | Data     | More     |
-| Row 2    | Data     | More     |
-
-### Blockquotes
-> This is a blockquote
-> It can span multiple lines
-
----
-
-Happy writing! 🚀`,
-            FTMdcTags: ['welcome'],
-            FNMdcSize: 0,
-            FBMdcFavorite: false,
-            FDMdcCreated: new Date(),
-            FDMdcModified: new Date(),
-            // Legacy properties for compatibility
-            title: 'Welcome to MitIT Markdown Editor',
-            content: `# Welcome to Markdown Editor
-
-This is a powerful markdown editor with real-time preview capabilities.
-
-## Features
-
-- **Real-time Preview**: See your markdown rendered as HTML instantly
-- **Auto-save**: Your work is automatically saved as you type
-- **Export Options**: Export to PDF, Excel, or Markdown files
-- **Import Support**: Import existing markdown files
-- **Dark Mode**: Toggle between light and dark themes
-- **Offline Support**: Works offline with PWA capabilities
-
-## Getting Started
-
-1. Start typing in the editor panel on the left
-2. See the live preview on the right
-3. Use the toolbar to save, import, or export your documents
-4. Create new documents using the file manager
-
-## Markdown Syntax Examples
-
-### Headers
-\`\`\`
-# H1 Header
-## H2 Header
-### H3 Header
-\`\`\`
-
-### Lists
-- Unordered list item 1
-- Unordered list item 2
-  - Nested item
-
-1. Ordered list item 1
-2. Ordered list item 2
-
-### Code
-Inline \`code\` and code blocks:
-
-\`\`\`javascript
-function hello() {
-  console.log('Hello, World!');
-}
-\`\`\`
-
-### Links and Images
-[Link text](https://example.com)
-![Alt text](https://via.placeholder.com/300x200)
-
-### Tables
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-| Row 1    | Data     | More     |
-| Row 2    | Data     | More     |
-
-### Blockquotes
-> This is a blockquote
-> It can span multiple lines
-
----
-
-Happy writing! 🚀`,
-            tags: ['welcome']
-          });
-        }
       } catch (error) {
         console.error('Failed to initialize:', error);
       } finally {
@@ -168,7 +29,156 @@ Happy writing! 🚀`,
     };
 
     initialize();
-  }, [initializeDatabase, documents.length, createDocument]);
+  }, [initializeDatabase]);
+
+  // Function to create the welcome document
+  const createWelcomeDocument = async () => {
+    try {
+      await createDocument({
+        FTMdcTitle: 'Welcome to MitIT Markdown Editor',
+        FTMdcContent: `# Welcome to Markdown Editor
+
+This is a powerful markdown editor with real-time preview capabilities.
+
+## Features
+
+- **Real-time Preview**: See your markdown rendered as HTML instantly
+- **Auto-save**: Your work is automatically saved as you type
+- **Export Options**: Export to PDF, Excel, or Markdown files
+- **Import Support**: Import existing markdown files
+- **Dark Mode**: Toggle between light and dark themes
+- **Offline Support**: Works offline with PWA capabilities
+
+## Getting Started
+
+1. Start typing in the editor panel on the left
+2. See the live preview on the right
+3. Use the toolbar to save, import, or export your documents
+4. Create new documents using the file manager
+
+## Markdown Syntax Examples
+
+### Headers
+\`\`\`
+# H1 Header
+## H2 Header
+### H3 Header
+\`\`\`
+
+### Lists
+- Unordered list item 1
+- Unordered list item 2
+  - Nested item
+
+1. Ordered list item 1
+2. Ordered list item 2
+
+### Code
+Inline \`code\` and code blocks:
+
+\`\`\`javascript
+function hello() {
+  console.log('Hello, World!');
+}
+\`\`\`
+
+### Links and Images
+[Link text](https://example.com)
+![Alt text](https://via.placeholder.com/300x200)
+
+### Tables
+| Column 1 | Column 2 | Column 3 |
+|----------|----------|----------|
+| Row 1    | Data     | More     |
+| Row 2    | Data     | More     |
+
+### Blockquotes
+> This is a blockquote
+> It can span multiple lines
+
+---
+
+Happy writing! 🚀`,
+        FTMdcTags: ['welcome'],
+        FNMdcSize: 0,
+        FBMdcFavorite: false,
+        FDMdcCreated: new Date(),
+        FDMdcModified: new Date(),
+        // Legacy properties for compatibility
+        title: 'Welcome to MitIT Markdown Editor',
+        content: `# Welcome to Markdown Editor
+
+This is a powerful markdown editor with real-time preview capabilities.
+
+## Features
+
+- **Real-time Preview**: See your markdown rendered as HTML instantly
+- **Auto-save**: Your work is automatically saved as you type
+- **Export Options**: Export to PDF, Excel, or Markdown files
+- **Import Support**: Import existing markdown files
+- **Dark Mode**: Toggle between light and dark themes
+- **Offline Support**: Works offline with PWA capabilities
+
+## Getting Started
+
+1. Start typing in the editor panel on the left
+2. See the live preview on the right
+3. Use the toolbar to save, import, or export your documents
+4. Create new documents using the file manager
+
+## Markdown Syntax Examples
+
+### Headers
+\`\`\`
+# H1 Header
+## H2 Header
+### H3 Header
+\`\`\`
+
+### Lists
+- Unordered list item 1
+- Unordered list item 2
+  - Nested item
+
+1. Ordered list item 1
+2. Ordered list item 2
+
+### Code
+Inline \`code\` and code blocks:
+
+\`\`\`javascript
+function hello() {
+  console.log('Hello, World!');
+}
+\`\`\`
+
+### Links and Images
+[Link text](https://example.com)
+![Alt text](https://via.placeholder.com/300x200)
+
+### Tables
+| Column 1 | Column 2 | Column 3 |
+|----------|----------|----------|
+| Row 1    | Data     | More     |
+| Row 2    | Data     | More     |
+
+### Blockquotes
+> This is a blockquote
+> It can span multiple lines
+
+---
+
+Happy writing! 🚀`,
+        tags: ['welcome']
+      });
+      
+      // Set the welcome document as current
+      // setCurrentDocument(welcomeDoc);
+    } catch (error) {
+      console.error('Failed to create welcome document:', error);
+      alert('Failed to create welcome document');
+    }
+  };
 
   // Format text function
   const handleFormatText = (format: string, value?: string | number) => {
@@ -203,18 +213,20 @@ Happy writing! 🚀`,
         newText = `~~${selectedText}~~`;
         newCursorPos = selectedText ? start + newText.length : start + 2;
         break;
-      case 'heading':
+      case 'heading': {
         const level = value as number;
         const headingPrefix = '#'.repeat(level) + ' ';
         newText = `${headingPrefix}${selectedText}`;
         newCursorPos = start + headingPrefix.length + selectedText.length;
         break;
-      case 'list':
+      }
+      case 'list': {
         const isOrdered = typeof value === 'boolean' ? value : false;
         const listPrefix = isOrdered ? '1. ' : '- ';
         newText = `${listPrefix}${selectedText}`;
         newCursorPos = start + listPrefix.length + selectedText.length;
         break;
+      }
       case 'code':
         newText = `\`${selectedText}\``;
         newCursorPos = selectedText ? start + newText.length : start + 1;
@@ -270,14 +282,19 @@ Happy writing! 🚀`,
             />
           )}
           
-          {/* File Manager Sidebar */}
+          {/* File Manager Sidebar - Collapsible on desktop, mobile overlay */}
+          <div className="hidden lg:block">
+            <CollapsibleSidebar>
+              <OFileManager createWelcomeDocument={createWelcomeDocument} />
+            </CollapsibleSidebar>
+          </div>
+          
+          {/* Mobile sidebar */}
           <div className={`
             ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-            lg:translate-x-0 lg:static
-            fixed left-0 top-0 z-50
+            lg:hidden fixed left-0 top-0 z-50
             w-80 h-full
             transition-transform duration-300 ease-in-out
-            lg:transition-none
           `}>
             <div className="h-full flex flex-col">
               {/* Mobile Header */}
@@ -293,12 +310,12 @@ Happy writing! 🚀`,
                 </button>
               </div>
               
-              <OFileManager className="flex-1" />
+              <OFileManager className="flex-1" createWelcomeDocument={createWelcomeDocument} />
             </div>
           </div>
           
-          {/* Editor and Preview */}
-          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          {/* Editor and Preview - Resizable */}
+          <div className="flex-1 flex flex-col overflow-hidden">
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsSidebarOpen(true)}
@@ -307,19 +324,20 @@ Happy writing! 🚀`,
               <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
             
-            {/* Editor Panel */}
-            <div className="flex-1 lg:flex-1" onClick={() => console.log('🔥 Editor panel clicked!')}>
-              <OMarkdownEditor 
-                fontSize={fontSize}
-                fontFamily={fontFamily}
-                onFormatText={handleFormatText}
-              />
-            </div>
-            
-            {/* Preview Panel - Hidden on mobile, shown on tablet+ */}
-            <div className="hidden md:block md:flex-1">
-              <OPreviewPanel />
-            </div>
+            {/* Resizable Editor and Preview */}
+            <ResizablePanel
+              leftPanel={
+                <OMarkdownEditor 
+                  fontSize={fontSize}
+                  fontFamily={fontFamily}
+                  onFormatText={handleFormatText}
+                />
+              }
+              rightPanel={<OPreviewPanel />}
+              initialLeftWidth={50}
+              minLeftWidth={30}
+              maxLeftWidth={70}
+            />
           </div>
         </div>
         

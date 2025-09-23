@@ -34,7 +34,7 @@ export interface AppSettings {
 }
 
 export interface ExportOptions {
-  format: 'md' | 'pdf' | 'html' | 'xlsx';
+  format: 'md' | 'pdf' | 'html' | 'xlsx' | 'docx';
   filename: string;
   includeMetadata?: boolean;
   pageSize?: string;

@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import { marked } from 'marked';
-import { ExportOptions, MarkdownDocument } from '@/types';
+import { MarkdownDocument } from '@/types';
 
 // Configure marked options
 marked.setOptions({
@@ -47,19 +47,15 @@ export class ExportService {
       console.log('Unicode support available:', hasUnicodeSupport);
       
       // Configure fonts for Thai text support with error handling
-      let fontConfigured = false;
-      
       try {
         // Use built-in helvetica font to avoid Unicode errors
         pdf.setFont('helvetica', 'normal');
-        fontConfigured = true;
         console.log('Using helvetica font for PDF export');
       } catch (error) {
         console.warn('Failed to set helvetica font:', error);
         try {
           // Final fallback to times
           pdf.setFont('times', 'normal');
-          fontConfigured = true;
           console.log('Using times font as fallback');
         } catch (fallbackError) {
           console.error('All font configurations failed:', fallbackError);
@@ -83,7 +79,7 @@ export class ExportService {
       const margin = 20;
       let yPosition = margin;
 
-      lines.forEach((line, index) => {
+      lines.forEach((line) => {
         if (yPosition + lineHeight > pageHeight - margin) {
           pdf.addPage();
           yPosition = margin;
@@ -166,6 +162,66 @@ export class ExportService {
       } else {
         throw new Error('เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุในการ export PDF');
       }
+    }
+  }
+
+  // Export as DOCX
+  static async exportAsDOCX(content: string, title: string, filename: string = 'document.docx', metadata?: { created?: Date, updated?: Date }): Promise<void> {
+    try {
+      // Validate input
+      if (!content || content.trim() === '') {
+        throw new Error('No content to export');
+      }
+
+      // Dynamically import docxtemplater to avoid issues with static imports
+      await import('docxtemplater');
+      const PizZipModule = await import('pizzip');
+      
+      // Convert markdown to HTML
+      const html = await marked(content);
+      
+      // Create a simple DOCX structure
+      const docxZip = new PizZipModule.default();
+      
+      // Add the document content
+      docxZip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+      
+      docxZip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+      
+      docxZip.file("word/_rels/document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`);
+      
+      // Parse HTML and create DOCX content with formatting
+      const docxContent = this.htmlToDocx(html, title, metadata);
+      
+      docxZip.file("word/document.xml", docxContent);
+      
+      // Generate the DOCX file
+      const docxBlob = docxZip.generate({type: 'blob'});
+      
+      // Create download link
+      const url = URL.createObjectURL(docxBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename.endsWith('.docx') ? filename : `${filename}.docx`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Failed to export DOCX:', error);
+      throw new Error('Failed to export DOCX');
     }
   }
 
@@ -313,5 +369,316 @@ export class ExportService {
     Array.from(tempDiv.childNodes).forEach(processNode);
     
     return lines.filter(line => line !== undefined);
+  }
+
+  // Helper function to convert HTML to DOCX XML format
+  private static htmlToDocx(html: string, title: string, metadata?: { created?: Date, updated?: Date }): string {
+    // Create a temporary element to parse HTML
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    
+    // Start building the DOCX XML content
+    let content = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:body>
+    <!-- Title -->
+    <w:p>
+      <w:pPr>
+        <w:jc w:val="center"/>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="48"/>
+        </w:rPr>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="48"/>
+        </w:rPr>
+        <w:t>${this.encodeXml(title)}</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:r>
+        <w:br/>
+      </w:r>
+    </w:p>`;
+
+    // Process each child node
+    Array.from(temp.childNodes).forEach(node => {
+      content += this.processNodeForDocx(node);
+    });
+
+    // Add metadata if provided
+    if (metadata) {
+      content += `
+    <w:p>
+      <w:r>
+        <w:br/>
+      </w:r>
+    </w:p>`;
+        
+        if (metadata.created) {
+          content += `
+    <w:p>
+      <w:r>
+        <w:t>Created: ${metadata.created.toLocaleDateString()}</w:t>
+      </w:r>
+    </w:p>`;
+        }
+        
+        if (metadata.updated) {
+          content += `
+    <w:p>
+      <w:r>
+        <w:t>Updated: ${metadata.updated.toLocaleDateString()}</w:t>
+      </w:r>
+    </w:p>`;
+        }
+    }
+
+    // Close the document
+    content += `
+  </w:body>
+</w:document>`;
+    
+    return content;
+  }
+
+  // Process individual HTML nodes for DOCX conversion
+  private static processNodeForDocx(node: Node): string {
+    let content = '';
+    
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent?.trim();
+      if (text) {
+        content += `
+    <w:p>
+      <w:r>
+        <w:t>${this.encodeXml(text)}</w:t>
+      </w:r>
+    </w:p>`;
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as Element;
+      const tagName = element.tagName.toLowerCase();
+      
+      switch (tagName) {
+        case 'h1':
+          content += `
+    <w:p>
+      <w:pPr>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="48"/>
+        </w:rPr>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="48"/>
+        </w:rPr>
+        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
+      </w:r>
+    </w:p>`;
+          break;
+          
+        case 'h2':
+          content += `
+    <w:p>
+      <w:pPr>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="36"/>
+        </w:rPr>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="36"/>
+        </w:rPr>
+        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
+      </w:r>
+    </w:p>`;
+          break;
+          
+        case 'h3':
+          content += `
+    <w:p>
+      <w:pPr>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+        </w:rPr>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+        </w:rPr>
+        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
+      </w:r>
+    </w:p>`;
+          break;
+          
+        case 'p': {
+          const text = element.textContent?.trim() || '';
+          if (text) {
+            content += `
+    <w:p>
+      <w:r>
+        <w:t>${this.encodeXml(text)}</w:t>
+      </w:r>
+    </w:p>`;
+          }
+          break;
+        }
+          
+        case 'br':
+          content += `
+    <w:p>
+      <w:r>
+        <w:br/>
+      </w:r>
+    </w:p>`;
+          break;
+          
+        case 'strong':
+        case 'b':
+          content += `
+    <w:p>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+        </w:rPr>
+        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
+      </w:r>
+    </w:p>`;
+          break;
+          
+        case 'em':
+        case 'i':
+          content += `
+    <w:p>
+      <w:r>
+        <w:rPr>
+          <w:i/>
+        </w:rPr>
+        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
+      </w:r>
+    </w:p>`;
+          break;
+          
+        case 'ul':
+          Array.from(element.children).forEach(li => {
+            if (li.tagName.toLowerCase() === 'li') {
+              content += `
+    <w:p>
+      <w:pPr>
+        <w:numPr>
+          <w:ilvl w:val="0"/>
+          <w:numId w:val="1"/>
+        </w:numPr>
+      </w:pPr>
+      <w:r>
+        <w:t>${this.encodeXml(li.textContent?.trim() || '')}</w:t>
+      </w:r>
+    </w:p>`;
+            }
+          });
+          break;
+          
+        case 'ol':
+          Array.from(element.children).forEach((li) => {
+            if (li.tagName.toLowerCase() === 'li') {
+              content += `
+    <w:p>
+      <w:pPr>
+        <w:numPr>
+          <w:ilvl w:val="0"/>
+          <w:numId w:val="2"/>
+        </w:numPr>
+      </w:pPr>
+      <w:r>
+        <w:t>${this.encodeXml(li.textContent?.trim() || '')}</w:t>
+      </w:r>
+    </w:p>`;
+            }
+          });
+          break;
+          
+        case 'code':
+          content += `
+    <w:p>
+      <w:r>
+        <w:rPr>
+          <w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>
+        </w:rPr>
+        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
+      </w:r>
+    </w:p>`;
+          break;
+          
+        case 'pre':
+          content += `
+    <w:p>
+      <w:pPr>
+        <w:pStyle w:val="PreformattedText"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>
+        </w:rPr>
+        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
+      </w:r>
+    </w:p>`;
+          break;
+          
+        case 'blockquote':
+          content += `
+    <w:p>
+      <w:pPr>
+        <w:ind w:left="720"/>
+      </w:pPr>
+      <w:r>
+        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
+      </w:r>
+    </w:p>`;
+          break;
+          
+        default:
+          // For other elements, process children
+          Array.from(element.childNodes).forEach(child => {
+            content += this.processNodeForDocx(child);
+          });
+          break;
+      }
+    }
+    
+    return content;
+  }
+
+  // Helper function to convert HTML to plain text
+  private static htmlToText(html: string): string {
+    // Create a temporary element to parse HTML
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    
+    // Extract text content
+    return temp.textContent || temp.innerText || '';
+  }
+
+  // Helper function to encode text for XML
+  private static encodeXml(text: string): string {
+    if (!text) return '';
+    
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;')
+      .replace(/\n/g, '</w:t></w:r><w:r><w:br/><w:t>')
+      .replace(/\t/g, '    '); // Replace tabs with 4 spaces
   }
 }
