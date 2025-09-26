@@ -467,13 +467,10 @@ export class sExportService {
               content += `
     <w:p>
       <w:pPr>
-        <w:numPr>
-          <w:ilvl w:val="0"/>
-          <w:numId w:val="1"/>
-        </w:numPr>
+        <w:ind w:left="720"/>
       </w:pPr>
       <w:r>
-        <w:t>${this.FSxEXPEncodeXml(li.textContent?.trim() || '')}</w:t>
+        <w:t>• ${this.FSxEXPEncodeXml(li.textContent?.trim() || '')}</w:t>
       </w:r>
     </w:p>`;
             }
@@ -481,18 +478,15 @@ export class sExportService {
           break;
           
         case 'ol':
-          Array.from(element.children).forEach((li) => {
+          Array.from(element.children).forEach((li, index) => {
             if (li.tagName.toLowerCase() === 'li') {
               content += `
     <w:p>
       <w:pPr>
-        <w:numPr>
-          <w:ilvl w:val="0"/>
-          <w:numId w:val="2"/>
-        </w:numPr>
+        <w:ind w:left="720"/>
       </w:pPr>
       <w:r>
-        <w:t>${this.FSxEXPEncodeXml(li.textContent?.trim() || '')}</w:t>
+        <w:t>${index + 1}. ${this.FSxEXPEncodeXml(li.textContent?.trim() || '')}</w:t>
       </w:r>
     </w:p>`;
             }
