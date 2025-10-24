@@ -1,5 +1,4 @@
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { marked } from 'marked';
 
 // Thai font support configuration
@@ -18,7 +17,132 @@ interface PDFExportOptions {
   quality?: number;
 }
 
-// Create styled container for PDF export
+// Create print-style CSS for PDF export (same as handlePrint)
+function getPrintCSS(): string {
+  return `
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@300;400;500;600;700&display=swap');
+    
+    @media print {
+      @page {
+        size: A4;
+        margin: 2cm;
+      }
+      
+      body {
+        font-family: 'Sarabun', 'Noto Sans Thai', 'Kanit', 'Arial', sans-serif !important;
+        font-size: 13pt;
+        line-height: 1.8;
+        color: #000 !important;
+        background: white !important;
+        margin: 0;
+        padding: 0;
+      }
+      
+      .print-container {
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      
+      h1, h2, h3, h4, h5, h6 {
+        font-family: 'Kanit', 'Sarabun', sans-serif !important;
+        color: #1a1a1a !important;
+        page-break-after: avoid;
+        margin: 24px 0 16px 0;
+        line-height: 1.3;
+        font-weight: 600;
+      }
+      
+      h1 {
+        font-size: 24px !important;
+        border-bottom: 2px solid #333 !important;
+        padding-bottom: 8px;
+      }
+      
+      h2 {
+        font-size: 20px !important;
+        border-bottom: 1px solid #666 !important;
+        padding-bottom: 4px;
+      }
+      
+      h3 { font-size: 18px !important; }
+      h4 { font-size: 16px !important; }
+      h5, h6 { font-size: 14px !important; }
+      
+      p {
+        margin: 0.8em 0;
+        text-align: justify;
+        orphans: 3;
+        widows: 3;
+      }
+      
+      ul, ol {
+        margin: 12px 0 !important;
+        padding-left: 24px !important;
+      }
+      
+      li {
+        margin: 4px 0 !important;
+        page-break-inside: avoid;
+      }
+      
+      pre {
+        background: #f8f9fa !important;
+        border: 1px solid #e9ecef !important;
+        padding: 16px !important;
+        margin: 16px 0 !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 12px !important;
+        page-break-inside: avoid;
+        white-space: pre-wrap;
+      }
+      
+      code {
+        font-family: 'Courier New', monospace !important;
+        background: #f8f9fa !important;
+        padding: 2px 4px !important;
+        border-radius: 3px;
+      }
+      
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 16px 0 !important;
+        page-break-inside: avoid;
+      }
+      
+      th, td {
+        border: 1px solid #dee2e6 !important;
+        padding: 8px 12px !important;
+        text-align: left;
+      }
+      
+      th {
+        background: #f8f9fa !important;
+        font-weight: 600;
+      }
+      
+      blockquote {
+        border-left: 4px solid #007bff !important;
+        margin: 16px 0 !important;
+        padding: 8px 16px !important;
+        background: #f8f9fa !important;
+      }
+    }
+    
+    body {
+      font-family: 'Sarabun', 'Noto Sans Thai', 'Kanit', 'Arial', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+  `;
+}
+
+// Create styled container for PDF export using print CSS
 async function createPDFContainer(content: string): Promise<HTMLElement> {
   const container = document.createElement('div');
   
@@ -32,280 +156,89 @@ async function createPDFContainer(content: string): Promise<HTMLElement> {
     });
     
     try {
-      const result = marked(content);
-      htmlContent = typeof result === 'string' ? result : await result;
+      htmlContent = await marked(content);
     } catch (error) {
       console.error('Error converting markdown to HTML:', error);
       htmlContent = `<p>${content}</p>`;
     }
   }
   
-  container.innerHTML = htmlContent;
+  container.innerHTML = `<div class="print-container">${htmlContent}</div>`;
+  container.className = 'pdf-export-container';
   
-  // Apply PDF-specific styles
+  // Apply print CSS styles to container
+  const style = document.createElement('style');
+  style.textContent = getPrintCSS();
+  document.head.appendChild(style);
+  
+  // Apply basic styling to container
   container.style.cssText = `
-    font-family: 'Sarabun', 'Kanit', 'Prompt', 'Noto Sans Thai', sans-serif;
+    font-family: 'Sarabun', 'Noto Sans Thai', 'Kanit', 'Arial', sans-serif;
     font-size: 14px;
-    line-height: 1.8;
+    line-height: 1.6;
     color: #333;
-    background: white;
-    padding: 40px;
     max-width: 800px;
     margin: 0 auto;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    padding: 20px;
+    background: white;
   `;
-  
-  // Style headings
-  const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
-  headings.forEach((heading) => {
-    const element = heading as HTMLElement;
-    const tagName = element.tagName.toLowerCase();
-    
-    element.style.cssText = `
-      font-family: 'Kanit', 'Sarabun', sans-serif;
-      font-weight: 600;
-      margin: 24px 0 16px 0;
-      color: #1a1a1a;
-      line-height: 1.3;
-      page-break-after: avoid;
-    `;
-    
-    // Different sizes and styles for different heading levels
-    switch (tagName) {
-      case 'h1':
-        element.style.fontSize = '24px';
-        element.style.borderBottom = '2px solid #333';
-        element.style.paddingBottom = '8px';
-        element.style.marginTop = '0';
-        break;
-      case 'h2':
-        element.style.fontSize = '20px';
-        element.style.borderBottom = '1px solid #666';
-        element.style.paddingBottom = '4px';
-        break;
-      case 'h3':
-        element.style.fontSize = '18px';
-        break;
-      case 'h4':
-        element.style.fontSize = '16px';
-        break;
-      case 'h5':
-      case 'h6':
-        element.style.fontSize = '14px';
-        break;
-    }
-  });
-  
-  // Style paragraphs
-  const paragraphs = container.querySelectorAll('p');
-  paragraphs.forEach(p => {
-    const element = p as HTMLElement;
-    element.style.cssText = `
-      font-family: 'Sarabun', sans-serif;
-      font-size: 14px;
-      line-height: 1.6;
-      margin: 12px 0;
-      color: #333;
-      text-align: justify;
-      page-break-inside: avoid;
-    `;
-  });
-  
-  // Style lists
-  const lists = container.querySelectorAll('ul, ol');
-  lists.forEach(list => {
-    const element = list as HTMLElement;
-    element.style.cssText = `
-      font-family: 'Sarabun', sans-serif;
-      font-size: 14px;
-      line-height: 1.6;
-      margin: 12px 0;
-      padding-left: 24px;
-      color: #333;
-    `;
-  });
-  
-  const listItems = container.querySelectorAll('li');
-  listItems.forEach(li => {
-    const element = li as HTMLElement;
-    element.style.cssText = `
-      margin: 4px 0;
-      line-height: 1.6;
-    `;
-  });
-  
-  // Style code blocks
-  const codeBlocks = container.querySelectorAll('pre');
-  codeBlocks.forEach(pre => {
-    const element = pre as HTMLElement;
-    element.style.cssText = `
-      background-color: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 4px;
-      padding: 16px;
-      margin: 16px 0;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      line-height: 1.4;
-      overflow-x: auto;
-      page-break-inside: avoid;
-    `;
-  });
-  
-  // Style inline code
-  const inlineCodes = container.querySelectorAll('code');
-  inlineCodes.forEach(code => {
-    const element = code as HTMLElement;
-    if (!element.parentElement || element.parentElement.tagName !== 'PRE') {
-      element.style.cssText = `
-        background-color: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 3px;
-        padding: 2px 4px;
-        font-family: 'Courier New', monospace;
-        font-size: 12px;
-        color: #d63384;
-      `;
-    }
-  });
-  
-  // Style blockquotes
-  const blockquotes = container.querySelectorAll('blockquote');
-  blockquotes.forEach(blockquote => {
-    const element = blockquote as HTMLElement;
-    element.style.cssText = `
-      border-left: 4px solid #007bff;
-      background-color: #f8f9fa;
-      margin: 16px 0;
-      padding: 12px 16px;
-      font-style: italic;
-      color: #495057;
-      page-break-inside: avoid;
-    `;
-  });
-  
-  // Style tables
-  const tables = container.querySelectorAll('table');
-  tables.forEach(table => {
-    const element = table as HTMLElement;
-    element.style.cssText = `
-      width: 100%;
-      border-collapse: collapse;
-      margin: 16px 0;
-      font-family: 'Sarabun', sans-serif;
-      font-size: 12px;
-      page-break-inside: avoid;
-    `;
-  });
-  
-  const tableCells = container.querySelectorAll('th, td');
-  tableCells.forEach(cell => {
-    const element = cell as HTMLElement;
-    element.style.cssText = `
-      border: 1px solid #dee2e6;
-      padding: 8px 12px;
-      text-align: left;
-      vertical-align: top;
-    `;
-    
-    if (element.tagName === 'TH') {
-      element.style.backgroundColor = '#f8f9fa';
-      element.style.fontWeight = '600';
-    }
-  });
-  
-  // Style links
-  const links = container.querySelectorAll('a');
-  links.forEach(link => {
-    const element = link as HTMLElement;
-    element.style.cssText = `
-      color: #007bff;
-      text-decoration: underline;
-    `;
-  });
-  
-  // Style horizontal rules
-  const hrs = container.querySelectorAll('hr');
-  hrs.forEach(hr => {
-    const element = hr as HTMLElement;
-    element.style.cssText = `
-      border: none;
-      border-top: 2px solid #dee2e6;
-      margin: 24px 0;
-    `;
-  });
   
   return container;
 }
 
-// Export content as PDF
+// Export content as PDF using print window approach (same as handlePrint)
 export async function exportToPDF(
   content: string,
   options: PDFExportOptions = {}
 ): Promise<void> {
   const {
     filename = 'document.pdf',
-    format = 'a4',
-    orientation = 'portrait',
-    margin = 20,
-    quality = 1.0
   } = options;
   
   try {
-    // Create temporary container
-    const container = await createPDFContainer(content);
-    document.body.appendChild(container);
+    // Convert markdown to HTML
+    const htmlContent = await marked(content);
     
-    // Wait for fonts to load
-    await document.fonts.ready;
-    
-    // Generate canvas from HTML
-    const canvas = await html2canvas(container, {
-      scale: quality,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      width: container.scrollWidth,
-      height: container.scrollHeight
-    });
-    
-    // Remove temporary container
-    document.body.removeChild(container);
-    
-    // Create PDF
-    const pdf = new jsPDF({
-      orientation,
-      unit: 'mm',
-      format
-    });
-    
-    // Calculate dimensions
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth - (margin * 2);
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    
-    // Add image to PDF
-    const imgData = canvas.toDataURL('image/png');
-    let heightLeft = imgHeight;
-    let position = margin;
-    
-    // Add first page
-    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-    heightLeft -= (pageHeight - margin * 2);
-    
-    // Add additional pages if needed
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight + margin;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-      heightLeft -= (pageHeight - margin * 2);
+    // Create a new window for PDF generation with the content
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      throw new Error('ไม่สามารถเปิดหน้าต่างสำหรับสร้าง PDF ได้ กรุณาอนุญาตป๊อปอัพ');
     }
+
+    // Create print-specific CSS (same as handlePrint)
+    const printCSS = getPrintCSS();
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="th">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PDF Export - ${filename}</title>
+        <style>
+          ${printCSS}
+        </style>
+      </head>
+      <body>
+        <div class="print-container">
+          ${htmlContent}
+        </div>
+      </body>
+      </html>
+    `);
     
-    // Save PDF
-    pdf.save(filename);
+    printWindow.document.close();
+    
+    // Wait for content to load then trigger print dialog
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+      
+      // Close window after a delay to allow printing
+      setTimeout(() => {
+        printWindow.close();
+      }, 1000);
+    }, 500);
     
   } catch (error) {
     console.error('Error exporting PDF:', error);

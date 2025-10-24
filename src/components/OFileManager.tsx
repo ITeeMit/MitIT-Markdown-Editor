@@ -8,7 +8,10 @@ import {
   Tag,
   MoreVertical,
   Upload,
-  HelpCircle
+  HelpCircle,
+  GitBranch,
+  Workflow,
+  Edit
 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
 import { MarkdownDocument } from '@/types';
@@ -24,7 +27,8 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
     currentDocument, 
     createDocument, 
     deleteDocument, 
-    setCurrentDocument 
+    setCurrentDocument,
+    updateDocument
   } = useEditorStore();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,7 +36,40 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
   const [isCreating, setIsCreating] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [renamingDocId, setRenamingDocId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle document renaming
+  const handleRenameDocument = async (docId: string, newTitle: string) => {
+    if (!newTitle.trim()) return;
+    
+    try {
+      await updateDocument({
+        title: newTitle.trim(),
+        FTMdcTitle: newTitle.trim()
+      });
+      setRenamingDocId(null);
+      setRenameTitle('');
+      setSelectedDocId(null);
+    } catch (error) {
+      console.error('Failed to rename document:', error);
+      alert('Failed to rename document');
+    }
+  };
+  
+  // Start renaming process
+  const startRenaming = (doc: MarkdownDocument) => {
+    setRenamingDocId(doc.id);
+    setRenameTitle(doc.title || 'Untitled Document');
+    setSelectedDocId(null);
+  };
+  
+  // Cancel renaming
+  const cancelRenaming = () => {
+    setRenamingDocId(null);
+    setRenameTitle('');
+  };
 
   // Filter documents based on search term
   const filteredDocuments = documents.filter(doc => 
@@ -40,6 +77,36 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
     doc.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // Get mode icon for document
+  const getModeIcon = (doc: MarkdownDocument) => {
+    const mode = doc.mode || doc.FTMdcMode || 'markdown';
+    
+    switch (mode) {
+      case 'mermaid':
+        return <GitBranch className="w-4 h-4 text-blue-500" />;
+      case 'plantuml':
+        return <Workflow className="w-4 h-4 text-green-500" />;
+      case 'markdown':
+      default:
+        return <FileText className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  // Get mode label for document
+  const getModeLabel = (doc: MarkdownDocument) => {
+    const mode = doc.mode || doc.FTMdcMode || 'markdown';
+    
+    switch (mode) {
+      case 'mermaid':
+        return 'Mermaid';
+      case 'plantuml':
+        return 'PlantUML';
+      case 'markdown':
+      default:
+        return 'Markdown';
+    }
+  };
 
   // Handle document selection
   const handleDocumentSelect = (doc: MarkdownDocument) => {
@@ -364,20 +431,51 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
                   }
                 `}
                 onClick={() => handleDocumentSelect(doc)}
-              >
-                {/* Document Header */}
+               >
+                 {/* Document Header */}
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
-                    <h3 className="
-                      font-medium text-gray-900 dark:text-gray-100
-                      truncate text-sm
-                    ">
-                      {doc.title || 'Untitled Document'}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      {getModeIcon(doc)}
+                      {renamingDocId === doc.id ? (
+                        <input
+                          type="text"
+                          value={renameTitle}
+                          onChange={(e) => setRenameTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleRenameDocument(doc.id, renameTitle);
+                            }
+                            if (e.key === 'Escape') {
+                              cancelRenaming();
+                            }
+                          }}
+                          onBlur={() => handleRenameDocument(doc.id, renameTitle)}
+                          className="
+                            flex-1 px-2 py-1 text-sm
+                            bg-white dark:bg-gray-700
+                            border border-blue-300 dark:border-blue-600
+                            rounded text-gray-900 dark:text-gray-100
+                            focus:outline-none focus:ring-2 focus:ring-blue-500
+                          "
+                          autoFocus
+                        />
+                      ) : (
+                        <h3 className="
+                          font-medium text-gray-900 dark:text-gray-100
+                          truncate text-sm
+                        ">
+                          {doc.title || 'Untitled Document'}
+                        </h3>
+                      )}
+                    </div>
                     
                     <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
                       <Calendar className="w-3 h-3" />
                       <span>{formatDate(doc.updatedAt)}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        {getModeLabel(doc)}
+                      </span>
                     </div>
                   </div>
                   
@@ -404,6 +502,21 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
                         border border-gray-200 dark:border-gray-700
                         rounded-lg shadow-lg py-1 min-w-[120px]
                       ">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startRenaming(doc);
+                          }}
+                          className="
+                            w-full px-3 py-2 text-left text-sm
+                            text-blue-600 dark:text-blue-400
+                            hover:bg-blue-50 dark:hover:bg-blue-900/20
+                            flex items-center gap-2
+                          "
+                        >
+                          <Edit className="w-4 h-4" />
+                          Rename
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

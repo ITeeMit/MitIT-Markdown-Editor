@@ -5,7 +5,7 @@ import {
   FileSpreadsheet,
   Loader2,
   Printer,
-  FileDown,
+
   Bold,
   Italic,
   Underline,
@@ -18,12 +18,18 @@ import {
   Code,
   Code2,
   Type,
-  FileTextIcon
+  FileTextIcon,
+  GitBranch,
+  Workflow,
+  Download,
+  Image,
+  FileImage
 } from 'lucide-react';
 import { marked } from 'marked';
 import { ExportService } from '@/utils/exportUtils';
-import { useEditorStore } from '@/stores/editorStore';
-import { quickExportPDF } from '@/utils/pdfExport';
+import { useEditorStore, EditorMode } from '@/stores/editorStore';
+
+import { DiagramExportService } from '@/utils/diagramExport';
 import OThemeToggle from './OThemeToggle';
 import '../styles/print.css';
 
@@ -36,6 +42,57 @@ interface OToolbarProps {
   onFontFamilyChange?: (family: string) => void;
 }
 
+// Mode Button Component
+interface ModeButtonProps {
+  mode: EditorMode;
+  currentMode: EditorMode;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  color: 'blue' | 'orange' | 'purple';
+}
+
+const ModeButton: React.FC<ModeButtonProps> = ({ 
+  mode, 
+  currentMode, 
+  onClick, 
+  icon, 
+  label, 
+  color 
+}) => {
+  const isActive = currentMode === mode;
+  
+  const colorClasses = {
+    blue: {
+      active: 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-600',
+      inactive: 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/50'
+    },
+    orange: {
+      active: 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-600',
+      inactive: 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-orange-50 dark:hover:bg-orange-900/50'
+    },
+    purple: {
+      active: 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-600',
+      inactive: 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-purple-50 dark:hover:bg-purple-900/50'
+    }
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-medium
+        transition-all duration-200 ease-in-out
+        ${isActive ? colorClasses[color].active : colorClasses[color].inactive}
+      `}
+      title={`Switch to ${label} mode`}
+    >
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+};
+
 const OToolbar: React.FC<OToolbarProps> = ({ 
   className = '',
   onFormatText,
@@ -46,7 +103,9 @@ const OToolbar: React.FC<OToolbarProps> = ({
   const { 
     currentDocument, 
     documents, 
-    saveDocument
+    saveDocument,
+    currentMode,
+    switchMode
   } = useEditorStore();
   
   const [isExporting, setIsExporting] = useState<string | null>(null);
@@ -291,25 +350,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
     }
   };
 
-  const handleExportPDF = async () => {
-    if (!currentDocument) {
-      alert('ไม่มีเนื้อหาสำหรับส่งออก PDF');
-      return;
-    }
 
-    try {
-      setIsExporting('pdf');
-      await quickExportPDF(
-        currentDocument.content,
-        `${currentDocument.title}.pdf`
-      );
-    } catch (error) {
-      console.error('Failed to export PDF:', error);
-      alert('เกิดข้อผิดพลาดในการส่งออก PDF');
-    } finally {
-      setIsExporting(null);
-    }
-  };
 
   const handleExportDOCX = async () => {
     if (!currentDocument) {
@@ -339,6 +380,48 @@ const OToolbar: React.FC<OToolbarProps> = ({
     } catch (error) {
       console.error('Failed to export Excel:', error);
       alert('Failed to export Excel file');
+    } finally {
+      setIsExporting(null);
+    }
+  };
+
+  // Diagram export handler (SVG only)
+
+
+  const handleExportDiagramSVG = async () => {
+    if (!currentDocument) {
+      alert('ไม่มีเนื้อหาสำหรับส่งออก');
+      return;
+    }
+
+    try {
+      setIsExporting('diagram-svg');
+      
+      if (currentMode === 'mermaid') {
+        if (!DiagramExportService.validateDiagramForExport('mermaid')) {
+          alert('ไม่พบ Mermaid diagram ที่จะ export กรุณาตรวจสอบว่า diagram แสดงผลอย่างถูกต้อง');
+          return;
+        }
+        
+        await DiagramExportService.exportMermaidDiagram({
+          format: 'svg',
+          filename: `${currentDocument.title || 'mermaid-diagram'}.svg`
+        });
+      } else if (currentMode === 'plantuml') {
+        const content = currentDocument.content || currentDocument.FTMdcContent || '';
+        if (!DiagramExportService.validateDiagramForExport('plantuml', content)) {
+          alert('ไม่มีเนื้อหา PlantUML ที่จะ export');
+          return;
+        }
+        
+        await DiagramExportService.exportPlantUMLDiagram(content, {
+          format: 'svg',
+          filename: `${currentDocument.title || 'plantuml-diagram'}.svg`
+        });
+      }
+    } catch (error) {
+      console.error('Failed to export diagram as SVG:', error);
+      alert(`เกิดข้อผิดพลาดในการส่งออก SVG: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsExporting(null);
     }
@@ -377,11 +460,42 @@ const OToolbar: React.FC<OToolbarProps> = ({
 
   return (
     <div className={`
-      flex items-center gap-2 p-3
-      bg-white dark:bg-gray-800
+      flex items-center gap-3 px-4 py-2 
+      bg-white dark:bg-gray-800 
       border-b border-gray-200 dark:border-gray-700
       ${className}
     `}>
+      {/* Mode Selector */}
+      <div className="flex items-center gap-1 mr-2">
+        <ModeButton
+          mode="markdown"
+          currentMode={currentMode}
+          onClick={() => switchMode('markdown')}
+          icon={<FileText className="w-4 h-4" />}
+          label="Markdown"
+          color="blue"
+        />
+        <ModeButton
+          mode="mermaid"
+          currentMode={currentMode}
+          onClick={() => switchMode('mermaid')}
+          icon={<GitBranch className="w-4 h-4" />}
+          label="Mermaid"
+          color="orange"
+        />
+        <ModeButton
+          mode="plantuml"
+          currentMode={currentMode}
+          onClick={() => switchMode('plantuml')}
+          icon={<Workflow className="w-4 h-4" />}
+          label="PlantUML"
+          color="purple"
+        />
+      </div>
+
+      {/* Separator */}
+      <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
       {/* File Operations */}
       <div className="flex items-center gap-2">
         <ToolbarButton
@@ -391,8 +505,6 @@ const OToolbar: React.FC<OToolbarProps> = ({
           disabled={!currentDocument}
           loading={isExporting === 'save'}
         />
-        
-
       </div>
 
       {/* Separator */}
@@ -553,45 +665,47 @@ const OToolbar: React.FC<OToolbarProps> = ({
 
       {/* Export Operations */}
       <div className="flex items-center gap-2">
-        <ToolbarButton
-          onClick={handleExportMarkdown}
-          icon={<FileText className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
-          title="Export as Markdown"
-          disabled={!currentDocument}
-          loading={isExporting === 'markdown'}
-        />
-        
-        <ToolbarButton
-          onClick={handleExportPDF}
-          icon={<FileDown className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
-          title="ส่งออกเป็น PDF (รองรับภาษาไทยและ Markdown)"
-          disabled={!currentDocument}
-          loading={isExporting === 'pdf'}
-        />
-        
-        <ToolbarButton
-          onClick={handleExportDOCX}
-          icon={<FileTextIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
-          title="ส่งออกเป็น DOCX"
-          disabled={!currentDocument}
-          loading={isExporting === 'docx'}
-        />
-        
-        <ToolbarButton
-          onClick={handlePrint}
-          icon={<Printer className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
-          title="พิมพ์เอกสาร (ใช้ Print Dialog ของเบราว์เซอร์)"
-          disabled={!currentDocument}
-          loading={isExporting === 'print'}
-        />
-        
-        <ToolbarButton
-          onClick={handleExportExcel}
-          icon={<FileSpreadsheet className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
-          title="Export All as Excel"
-          disabled={documents.length === 0}
-          loading={isExporting === 'excel'}
-        />
+        {/* Standard Export Buttons (for Markdown mode) */}
+        {currentMode === 'markdown' && (
+          <>
+            <ToolbarButton
+              onClick={handlePrint}
+              icon={<Printer className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
+              title="พิมพ์เอกสาร"
+              disabled={!currentDocument}
+              loading={isExporting === 'print'}
+            />
+            
+            <ToolbarButton
+              onClick={handleExportDOCX}
+              icon={<FileTextIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
+              title="ส่งออกเป็น DOCX"
+              disabled={!currentDocument}
+              loading={isExporting === 'docx'}
+            />
+            
+            <ToolbarButton
+              onClick={handleExportExcel}
+              icon={<FileSpreadsheet className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
+              title="Export All as Excel"
+              disabled={documents.length === 0}
+              loading={isExporting === 'excel'}
+            />
+          </>
+        )}
+
+        {/* Diagram Export Buttons (for Mermaid and PlantUML modes) */}
+        {(currentMode === 'mermaid' || currentMode === 'plantuml') && (
+          <>
+            <ToolbarButton
+              onClick={handleExportDiagramSVG}
+              icon={<FileImage className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
+              title={`ส่งออก ${currentMode === 'mermaid' ? 'Mermaid' : 'PlantUML'} diagram เป็น SVG`}
+              disabled={!currentDocument}
+              loading={isExporting === 'diagram-svg'}
+            />
+          </>
+        )}
       </div>
 
       {/* Spacer */}

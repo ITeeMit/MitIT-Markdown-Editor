@@ -9,7 +9,7 @@ class MarkdownDB extends Dexie {
   constructor() {
     super('MarkdownEditorDB');
     this.version(1).stores({
-      documents: '++id, title, createdAt, updatedAt, *tags',
+      documents: '++id, title, createdAt, updatedAt, *tags, mode',
       settings: '++id, theme, editorFontSize, previewWidth, autoSave'
     });
     

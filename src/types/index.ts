@@ -7,6 +7,7 @@ export interface MarkdownDocument {
   FNMdcSize: number;
   FTMdcTags?: string[];
   FBMdcFavorite: boolean;
+  FTMdcMode?: 'markdown' | 'mermaid' | 'plantuml'; // Editor mode for the document
   // Legacy properties for backward compatibility
   id?: string;
   title?: string;
@@ -16,6 +17,7 @@ export interface MarkdownDocument {
   tags?: string[];
   isStarred?: boolean;
   folderId?: string;
+  mode?: 'markdown' | 'mermaid' | 'plantuml'; // Legacy mode property
 }
 
 export interface AppSettings {

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { MarkdownDocument, AppSettings } from '@/types';
 import { DatabaseService } from '@/database';
 
+export type EditorMode = 'markdown' | 'mermaid' | 'plantuml';
+
 interface EditorStore {
   // Current document state
   currentDocument: MarkdownDocument | null;
@@ -19,6 +21,9 @@ interface EditorStore {
   isPreviewMode: boolean;
   isMobileView: boolean;
   
+  // Mode management
+  currentMode: EditorMode;
+  
   // Actions
   initializeDatabase: () => Promise<void>;
   createDocument: (docData: Omit<MarkdownDocument, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
@@ -35,6 +40,10 @@ interface EditorStore {
   autoSave: () => Promise<void>;
   saveDocument: () => Promise<void>;
   updateDocument: (updates: Partial<MarkdownDocument>) => Promise<void>;
+  
+  // Mode management actions
+  switchMode: (mode: EditorMode) => void;
+  getDefaultTemplate: (mode: EditorMode) => string;
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
@@ -60,6 +69,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
   isPreviewMode: false,
   isMobileView: false,
+  currentMode: 'markdown',
   
   // Initialize database
   initializeDatabase: async () => {
@@ -111,14 +121,25 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
   
   setCurrentDocument: (document: MarkdownDocument | null) => {
-    set({ 
-      currentDocument: document,
-      content: document?.content || ''
-    });
+    if (document) {
+      // Get the saved mode, with backward compatibility
+      const savedMode = document.mode || document.FTMdcMode || 'markdown';
+      
+      set({ 
+        currentDocument: document,
+        content: document.content || '',
+        currentMode: savedMode
+      });
+    } else {
+      set({ 
+        currentDocument: null,
+        content: ''
+      });
+    }
   },
   
   saveCurrentDocument: async () => {
-    const { currentDocument, content } = get();
+    const { currentDocument, content, currentMode } = get();
     
     if (!currentDocument) {
       // Create new document
@@ -129,7 +150,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     try {
       await DatabaseService.updateDocument(currentDocument.id, {
         content,
-        title: currentDocument.title
+        title: currentDocument.title,
+        mode: currentMode,
+        FTMdcMode: currentMode // Also save to legacy field
       });
       
       // Update current document with new updatedAt
@@ -149,7 +172,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
   
   createNewDocument: async (title = 'Untitled Document') => {
-    const { content } = get();
+    const { content, currentMode } = get();
     
     try {
       const now = new Date();
@@ -157,13 +180,15 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         title,
         content: content || '# New Document\n\nStart writing here...',
         tags: [],
+        mode: currentMode,
         FDMdcModified: now,
         FDMdcCreated: now,
         FNMdcSize: (content || '# New Document\n\nStart writing here...').length,
         FTMdcTitle: title,
         FTMdcContent: content || '# New Document\n\nStart writing here...',
         FTMdcTags: [],
-        FBMdcFavorite: false
+        FBMdcFavorite: false,
+        FTMdcMode: currentMode
       });
       
       const newDocument = await DatabaseService.getDocument(id);
@@ -185,9 +210,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     try {
       const document = await DatabaseService.getDocument(id);
       if (document) {
+        // Get the saved mode, with backward compatibility
+        const savedMode = document.mode || document.FTMdcMode || 'markdown';
+        
         set({ 
           currentDocument: document,
-          content: document.content
+          content: document.content,
+          currentMode: savedMode
         });
       }
     } catch (error) {
@@ -241,7 +270,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
   
   autoSave: async () => {
-    const { currentDocument, content, isAutoSaving, settings } = get();
+    const { currentDocument, content, isAutoSaving, settings, currentMode } = get();
     
     if (!settings.autoSave || isAutoSaving || !currentDocument) {
       return;
@@ -251,7 +280,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     
     try {
       await DatabaseService.updateDocument(currentDocument.id, {
-        content
+        content,
+        mode: currentMode,
+        FTMdcMode: currentMode
       });
       
       set({ 
@@ -292,6 +323,31 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       await get().loadAllDocuments();
     } catch (error) {
       console.error('Failed to update document:', error);
+    }
+  },
+
+  // Mode management actions
+  switchMode: (mode: EditorMode) => {
+    const template = get().getDefaultTemplate(mode);
+    set({ 
+      currentMode: mode,
+      content: template
+    });
+  },
+
+  getDefaultTemplate: (mode: EditorMode) => {
+    switch (mode) {
+      case 'markdown':
+        return '# Markdown Document\n\nStart writing your markdown content here...\n\n## Features\n\n- **Bold text**\n- *Italic text*\n- [Links](https://example.com)\n- `Code snippets`\n\n### Lists\n\n1. Numbered list\n2. Another item\n\n- Bullet point\n- Another bullet\n\n### Code Block\n\n```javascript\nconst greeting = "Hello, World!";\nconsole.log(greeting);\n```';
+      
+      case 'mermaid':
+        return '```mermaid\ngraph TD\n    A[Start] --> B{Decision}\n    B -->|Yes| C[Action 1]\n    B -->|No| D[Action 2]\n    C --> E[End]\n    D --> E\n```\n\n<!-- Mermaid Diagram Examples -->\n<!-- Flowchart, Sequence, Class, State, Gantt, Pie, etc. -->\n<!-- Edit the diagram above or create new ones -->';
+      
+      case 'plantuml':
+        return '@startuml\n!theme plain\ntitle Simple Class Diagram\n\nclass User {\n  +id: string\n  +name: string\n  +email: string\n  --\n  +login()\n  +logout()\n}\n\nclass Product {\n  +id: string\n  +name: string\n  +price: number\n  --\n  +getPrice()\n  +setPrice(price: number)\n}\n\nUser ||--o{ Product : owns\n\n@enduml\n\n\' PlantUML Diagram Examples\n\' Sequence, Class, Activity, Component, State, etc.\n\' Edit the diagram above or create new ones';
+      
+      default:
+        return '';
     }
   }
 }));

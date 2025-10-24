@@ -10,6 +10,7 @@ export interface TMDDocument {
   FTMdcTags?: string[]; // Tags array
   FNMdcSize: number; // Content size in bytes
   FBMdcFavorite: boolean; // Is favorite
+  FTMdcMode?: 'markdown' | 'mermaid' | 'plantuml'; // Editor mode
 }
 
 export interface TMDTemplate {
@@ -38,7 +39,7 @@ export class MarkdownEditorDB extends Dexie {
     super('MarkdownEditorDB');
     
     this.version(1).stores({
-      tMDDocument: '++FNMdcId, FTMdcTitle, FDMdcCreated, FDMdcModified, FTMdcTags, FBMdcFavorite',
+      tMDDocument: '++FNMdcId, FTMdcTitle, FDMdcCreated, FDMdcModified, FTMdcTags, FBMdcFavorite, FTMdcMode',
       tMDTemplate: '++FNTmpId, FTTmpName, FDTmpCreated',
       tMDSettings: '++FNSetId, FTSetKey'
     });

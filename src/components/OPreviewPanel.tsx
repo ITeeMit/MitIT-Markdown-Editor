@@ -1,15 +1,19 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { marked } from 'marked';
 import { useEditorStore } from '@/stores/editorStore';
 import { Eye, EyeOff } from 'lucide-react';
+import mermaid from 'mermaid';
+import plantumlEncoder from 'plantuml-encoder';
 
 interface OPreviewPanelProps {
   className?: string;
 }
 
 const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
-  const { currentDocument, content } = useEditorStore();
+  const { currentDocument, content, currentMode } = useEditorStore();
   const [isVisible, setIsVisible] = useState(true);
+  const mermaidRef = useRef<HTMLDivElement>(null);
+  const plantumlRef = useRef<HTMLDivElement>(null);
 
   // Configure marked options for better rendering
   useEffect(() => {
@@ -17,23 +21,164 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
       breaks: true,
       gfm: true
     });
+    
+    // Initialize Mermaid
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+      fontFamily: 'monospace'
+    });
   }, []);
 
-  // Convert markdown to HTML
-  const convertedHtml = useMemo(() => {
-    // ใช้ content จาก store เป็นหลัก เพื่อให้ live preview ทำงานแบบ real-time
-    const markdownContent = content || currentDocument?.FTMdcContent || currentDocument?.content || '';
-    if (!markdownContent) {
+  // Render content based on current mode
+  const renderContent = useMemo(() => {
+    const currentContent = content || currentDocument?.FTMdcContent || currentDocument?.content || '';
+    
+    if (!currentContent) {
       return '<div class="empty-state"><p>Start writing to see the preview...</p></div>';
     }
-    
-    try {
-      return marked(markdownContent);
-    } catch (error) {
-      console.error('Markdown parsing error:', error);
-      return '<div class="error-state"><p>Error parsing markdown</p></div>';
+
+    switch (currentMode) {
+      case 'markdown':
+        try {
+          return marked(currentContent);
+        } catch (error) {
+          console.error('Markdown parsing error:', error);
+          return '<div class="error-state"><p>Error parsing markdown</p></div>';
+        }
+      
+      case 'mermaid':
+        return `<div id="mermaid-preview" class="mermaid-container">${currentContent}</div>`;
+      
+      case 'plantuml':
+        return `<div id="plantuml-preview" class="plantuml-container">${currentContent}</div>`;
+      
+      default:
+        return '<div class="empty-state"><p>Unknown mode</p></div>';
     }
-  }, [content, currentDocument?.FTMdcContent, currentDocument?.content]);
+  }, [content, currentDocument?.FTMdcContent, currentDocument?.content, currentMode]);
+
+  // Handle Mermaid rendering
+  useEffect(() => {
+    if (currentMode === 'mermaid' && mermaidRef.current) {
+      const currentContent = content || currentDocument?.FTMdcContent || currentDocument?.content || '';
+      
+      if (currentContent.trim()) {
+        try {
+          // Clear previous content
+          mermaidRef.current.innerHTML = '';
+          
+          // Extract mermaid code from markdown code blocks
+          let mermaidCode = currentContent;
+          const mermaidMatch = currentContent.match(/```mermaid\n([\s\S]*?)\n```/);
+          if (mermaidMatch) {
+            mermaidCode = mermaidMatch[1];
+          }
+          
+          // Render mermaid diagram
+          mermaid.render('mermaid-diagram', mermaidCode).then(({ svg }) => {
+            if (mermaidRef.current) {
+              mermaidRef.current.innerHTML = svg;
+            }
+          }).catch((error) => {
+            console.error('Mermaid rendering error:', error);
+            if (mermaidRef.current) {
+              mermaidRef.current.innerHTML = '<div class="error-state"><p>Error rendering Mermaid diagram</p></div>';
+            }
+          });
+        } catch (error) {
+          console.error('Mermaid processing error:', error);
+          mermaidRef.current.innerHTML = '<div class="error-state"><p>Error processing Mermaid diagram</p></div>';
+        }
+      }
+    }
+  }, [currentMode, content, currentDocument?.FTMdcContent, currentDocument?.content]);
+
+  // Handle PlantUML rendering
+  useEffect(() => {
+    if (currentMode === 'plantuml' && plantumlRef.current) {
+      const currentContent = content || currentDocument?.FTMdcContent || currentDocument?.content || '';
+      
+      if (currentContent.trim()) {
+        try {
+          // Clear previous content
+          plantumlRef.current.innerHTML = '';
+          
+          // Extract PlantUML code from markdown code blocks or use raw content
+          let plantumlCode = currentContent;
+          const plantumlMatch = currentContent.match(/```plantuml\n([\s\S]*?)\n```/);
+          if (plantumlMatch) {
+            plantumlCode = plantumlMatch[1];
+          }
+          
+          // Encode PlantUML code
+          const encoded = plantumlEncoder.encode(plantumlCode);
+          
+          // Create PlantUML server URL (using public PlantUML server)
+          const plantumlUrl = `https://www.plantuml.com/plantuml/svg/${encoded}`;
+          
+          // Create image element to display the diagram
+          const img = document.createElement('img');
+          img.src = plantumlUrl;
+          img.alt = 'PlantUML Diagram';
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          img.style.display = 'block';
+          img.style.margin = '0 auto';
+          
+          // Handle image load success
+          img.onload = () => {
+            if (plantumlRef.current) {
+              plantumlRef.current.innerHTML = '';
+              plantumlRef.current.appendChild(img);
+            }
+          };
+          
+          // Handle image load error
+          img.onerror = () => {
+            if (plantumlRef.current) {
+              plantumlRef.current.innerHTML = `
+                <div class="plantuml-error">
+                  <p><strong>PlantUML Rendering Error</strong></p>
+                  <p>Unable to render the PlantUML diagram. Please check your syntax.</p>
+                  <details>
+                    <summary>PlantUML Code</summary>
+                    <pre class="plantuml-code">${plantumlCode}</pre>
+                  </details>
+                </div>
+              `;
+            }
+          };
+          
+          // Show loading state
+          plantumlRef.current.innerHTML = `
+            <div class="plantuml-loading">
+              <p>Rendering PlantUML diagram...</p>
+            </div>
+          `;
+          
+        } catch (error) {
+          console.error('PlantUML processing error:', error);
+          if (plantumlRef.current) {
+            plantumlRef.current.innerHTML = `
+              <div class="plantuml-error">
+                <p><strong>PlantUML Processing Error</strong></p>
+                <p>Error processing PlantUML diagram: ${error instanceof Error ? error.message : 'Unknown error'}</p>
+              </div>
+            `;
+          }
+        }
+      } else {
+        // Show empty state
+        plantumlRef.current.innerHTML = `
+          <div class="plantuml-empty">
+            <p>Enter PlantUML code to see the diagram preview...</p>
+          </div>
+        `;
+      }
+    }
+  }, [currentMode, content, currentDocument?.FTMdcContent, currentDocument?.content]);
 
   // Custom CSS for preview styling
   const previewStyles = `
@@ -209,6 +354,90 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
       .dark .empty-state, .dark .error-state {
         color: #6b7280;
       }
+      
+      /* Mermaid specific styles */
+      .mermaid-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 200px;
+        padding: 1rem;
+      }
+      
+      .mermaid-container svg {
+        max-width: 100%;
+        height: auto;
+      }
+      
+      /* PlantUML specific styles */
+      .plantuml-container {
+        padding: 1rem;
+      }
+      
+      .plantuml-preview {
+        background-color: #f8fafc;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        border: 1px solid #e2e8f0;
+      }
+      
+      .dark .plantuml-preview {
+        background-color: #1e293b;
+        border-color: #475569;
+      }
+      
+      .plantuml-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100px;
+        color: #6b7280;
+        font-style: italic;
+      }
+      
+      .plantuml-error {
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 0.375rem;
+        padding: 0.75rem;
+        color: #dc2626;
+      }
+      
+      .dark .plantuml-error {
+        background-color: #7f1d1d;
+        border-color: #dc2626;
+        color: #fecaca;
+      }
+      
+      .plantuml-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        color: #9ca3af;
+        font-style: italic;
+      }
+      
+      .dark .plantuml-empty {
+        color: #6b7280;
+      }
+      
+      .plantuml-code {
+        background-color: #f1f5f9;
+        padding: 1rem;
+        border-radius: 0.375rem;
+        font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        color: #374151;
+      }
+      
+      .dark .plantuml-code {
+        background-color: #334155;
+        color: #f1f5f9;
+      }
     </style>
   `;
 
@@ -250,7 +479,7 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
         bg-gray-50 dark:bg-gray-800
       ">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Preview
+          Preview - {currentMode.charAt(0).toUpperCase() + currentMode.slice(1)}
         </h3>
         
         <button
@@ -270,12 +499,18 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
       {/* Preview Content */}
       <div className="flex-1 overflow-auto">
         <div className="p-4">
-          <div 
-            className="preview-content"
-            dangerouslySetInnerHTML={{ 
-              __html: previewStyles + convertedHtml 
-            }}
-          />
+          {currentMode === 'mermaid' ? (
+            <div ref={mermaidRef} className="mermaid-container" />
+          ) : currentMode === 'plantuml' ? (
+            <div ref={plantumlRef} className="plantuml-container" />
+          ) : (
+            <div 
+              className="preview-content"
+              dangerouslySetInnerHTML={{ 
+                __html: previewStyles + renderContent 
+              }}
+            />
+          )}
         </div>
       </div>
 

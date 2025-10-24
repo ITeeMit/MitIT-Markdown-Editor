@@ -1,9 +1,9 @@
-# MitIT Markdown Editor
+# MitIT Multi-Mode Editor
 
 <div align="center">
-  <img src="public/markdown2pdf.png" alt="MitIT Markdown Editor" width="200" height="200">
+  <img src="public/markdown2pdf.png" alt="MitIT Multi-Mode Editor" width="200" height="200">
   
-  **A powerful markdown editor with PDF export capabilities**
+  **A powerful multi-mode editor with Markdown, Mermaid, and PlantUML support**
   
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![React](https://img.shields.io/badge/React-18.x-blue.svg)](https://reactjs.org/)
@@ -12,13 +12,35 @@
 
 ## 🚀 Features
 
-- **📝 Real-time Markdown Editing**: Live preview with syntax highlighting
-- **📄 PDF Export**: Convert markdown to high-quality PDF documents
-- **📁 File Management**: Built-in file explorer for easy document organization
-- **🎨 Syntax Highlighting**: Beautiful code syntax highlighting with multiple themes
-- **💾 Auto-save**: Automatic saving of your work
-- **📱 PWA Support**: Install as a Progressive Web App
-- **🌙 Modern UI**: Clean and intuitive user interface
+### 📝 Multi-Mode Editor
+- **Markdown Mode**: Full-featured markdown editing with live preview
+- **Mermaid Mode**: Create flowcharts, sequence diagrams, and more
+- **PlantUML Mode**: Generate UML diagrams with PlantUML syntax
+
+### 📤 Export Options
+- **Markdown Mode**: 
+  - 🖨️ Print/PDF export with Thai font support
+  - 📄 DOCX export for Microsoft Word compatibility
+  - 📊 Excel export for spreadsheet format
+- **Mermaid/PlantUML Modes**: 
+  - 🖼️ SVG export for high-quality vector graphics
+
+### 🌏 Thai Language Support
+- **Thai Fonts**: Proper rendering with Sarabun and Kanit fonts
+- **Export Compatibility**: Thai text support in all export formats
+- **Print Quality**: High-quality Thai text in PDF exports
+
+### 💾 Document Management
+- **Local Storage**: Documents saved using IndexedDB
+- **File Operations**: Create, rename, and delete documents
+- **File Upload**: Drag & drop markdown file support
+- **Auto-save**: Automatic saving of your work
+
+### 🎨 User Experience
+- **Real-time Preview**: Live preview for all editing modes
+- **Theme Support**: Light and dark theme toggle
+- **Responsive Design**: Works seamlessly on desktop and mobile
+- **Modern UI**: Clean and intuitive user interface
 - **⚡ Fast Performance**: Built with Vite for lightning-fast development
 
 ## 🛠️ Tech Stack
@@ -28,7 +50,16 @@
 - **Styling**: Tailwind CSS
 - **State Management**: Zustand
 - **Markdown Processing**: Custom markdown parser
-- **PDF Generation**: Browser-native PDF export
+- **Diagram Rendering**: 
+  - Mermaid for flowcharts and diagrams
+  - PlantUML for UML diagrams
+- **Data Storage**: IndexedDB for local document storage
+- **Export Capabilities**: 
+  - Browser-native PDF/Print export
+  - DOCX generation
+  - Excel export
+  - SVG export for diagrams
+- **Font Support**: Thai fonts integration (Sarabun, Kanit)
 - **Icons**: Lucide React
 - **Development**: TypeScript, ESLint
 
@@ -66,7 +97,7 @@ npm run dev
 pnpm dev
 ```
 
-The application will be available at `http://localhost:5176`
+The application will be available at `http://localhost:5173`
 
 ### Build for Production
 
@@ -80,11 +111,31 @@ pnpm build
 
 ## 🎯 Usage
 
-1. **Create/Open Files**: Use the file manager on the left to create new markdown files or open existing ones
-2. **Edit Markdown**: Write your markdown content in the editor with real-time preview
-3. **Export to PDF**: Click the PDF export button to generate a PDF version of your document
-4. **File Management**: Organize your documents using the built-in file explorer
-5. **PWA Installation**: Install the app on your device for offline access
+### Getting Started
+1. **Create/Open Documents**: Use the document manager to create new files or open existing ones
+2. **Choose Your Mode**: Select between Markdown, Mermaid, or PlantUML editing modes
+3. **Real-time Editing**: Write your content with live preview in the right panel
+
+### Markdown Mode
+- Write markdown content with syntax highlighting
+- Export options: Print/PDF, DOCX, Excel
+- Full Thai language support in exports
+
+### Mermaid Mode
+- Create flowcharts, sequence diagrams, gantt charts, and more
+- Export as SVG for high-quality vector graphics
+- Real-time diagram preview
+
+### PlantUML Mode
+- Generate UML diagrams using PlantUML syntax
+- Export as SVG format
+- Support for class diagrams, sequence diagrams, and more
+
+### File Management
+- **Local Storage**: All documents are saved locally using IndexedDB
+- **File Operations**: Create, rename, and delete documents
+- **File Upload**: Drag and drop markdown files to import
+- **Theme Toggle**: Switch between light and dark themes
 
 ## 🐳 Docker Deployment
 
@@ -113,15 +164,22 @@ The application will be available at `http://localhost:8037`
 ## 📁 Project Structure
 
 ```
-mitit-markdown-editor/
+mitit-multi-mode-editor/
 ├── public/                 # Static assets
 │   ├── manifest.json      # PWA manifest
 │   └── markdown2pdf.png   # App icon
 ├── src/                   # Source code
 │   ├── components/        # React components
+│   │   ├── OToolbar.tsx   # Main toolbar with mode switching
+│   │   ├── MarkdownEditor.tsx # Markdown editing component
+│   │   ├── MermaidEditor.tsx  # Mermaid diagram editor
+│   │   └── PlantUMLEditor.tsx # PlantUML diagram editor
 │   ├── hooks/            # Custom React hooks
-│   ├── pages/            # Page components
+│   ├── stores/           # Zustand state management
 │   ├── utils/            # Utility functions
+│   │   ├── pdfExport.ts  # PDF export utilities
+│   │   ├── docxExport.ts # DOCX export utilities
+│   │   └── excelExport.ts # Excel export utilities
 │   ├── App.tsx           # Main App component
 │   └── main.tsx          # Application entry point
 ├── docker/               # Docker configuration
