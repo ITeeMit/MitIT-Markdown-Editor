@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { TMDDocument } from '../types';
+import type { MarkdownDocument } from '../types';
 
 // Utility function for combining Tailwind classes
 export function cn(...inputs: ClassValue[]) {
@@ -159,25 +159,25 @@ export class uTextUtils {
 export class uDocumentUtils {
   // Sort documents by various criteria
   static FSaDocSortDocuments(
-    paDocuments: TMDDocument[], 
-    ptSortBy: 'title' | 'created' | 'modified' | 'size' = 'modified',
+    paDocuments: MarkdownDocument[],
+    ptSortBy: 'title' | 'created' | 'modified' | 'size',
     ptOrder: 'asc' | 'desc' = 'desc'
-  ): TMDDocument[] {
+  ): MarkdownDocument[] {
     const aSorted = [...paDocuments].sort((a, b) => {
       let nComparison = 0;
       
       switch (ptSortBy) {
         case 'title':
-          nComparison = a.FTMdcTitle.localeCompare(b.FTMdcTitle);
+          nComparison = a.title.localeCompare(b.title);
           break;
         case 'created':
-          nComparison = a.FDMdcCreated.getTime() - b.FDMdcCreated.getTime();
+          nComparison = a.createdAt.getTime() - b.createdAt.getTime();
           break;
         case 'modified':
-          nComparison = a.FDMdcModified.getTime() - b.FDMdcModified.getTime();
+          nComparison = a.updatedAt.getTime() - b.updatedAt.getTime();
           break;
         case 'size':
-          nComparison = a.FNMdcSize - b.FNMdcSize;
+          nComparison = a.content.length - b.content.length;
           break;
       }
       
@@ -189,21 +189,21 @@ export class uDocumentUtils {
   
   // Filter documents
   static FSaDocFilterDocuments(
-    paDocuments: TMDDocument[],
+    paDocuments: MarkdownDocument[],
     poFilters: {
       search?: string;
       tags?: string[];
       favorites?: boolean;
       dateRange?: { start: Date; end: Date };
     }
-  ): TMDDocument[] {
+  ): MarkdownDocument[] {
     return paDocuments.filter(doc => {
       // Search filter
       if (poFilters.search) {
         const tSearchLower = poFilters.search.toLowerCase();
-        const bMatchesTitle = doc.FTMdcTitle.toLowerCase().includes(tSearchLower);
-        const bMatchesContent = doc.FTMdcContent.toLowerCase().includes(tSearchLower);
-        const bMatchesTags = doc.FTMdcTags?.some(tag => tag.toLowerCase().includes(tSearchLower)) || false;
+        const bMatchesTitle = doc.title.toLowerCase().includes(tSearchLower);
+        const bMatchesContent = doc.content.toLowerCase().includes(tSearchLower);
+        const bMatchesTags = doc.tags?.some(tag => tag.toLowerCase().includes(tSearchLower)) || false;
         
         if (!bMatchesTitle && !bMatchesContent && !bMatchesTags) {
           return false;
@@ -212,19 +212,19 @@ export class uDocumentUtils {
       
       // Tags filter
       if (poFilters.tags && poFilters.tags.length > 0) {
-        const aDocTags = doc.FTMdcTags || [];
+        const aDocTags = doc.tags || [];
         const bHasMatchingTag = poFilters.tags.some(tag => aDocTags.includes(tag));
         if (!bHasMatchingTag) return false;
       }
       
       // Favorites filter
       if (poFilters.favorites !== undefined) {
-        if (doc.FBMdcFavorite !== poFilters.favorites) return false;
+        if (doc.isStarred !== poFilters.favorites) return false;
       }
       
       // Date range filter
       if (poFilters.dateRange) {
-        const dDocDate = doc.FDMdcModified;
+        const dDocDate = doc.updatedAt;
         if (dDocDate < poFilters.dateRange.start || dDocDate > poFilters.dateRange.end) {
           return false;
         }
@@ -235,15 +235,15 @@ export class uDocumentUtils {
   }
   
   // Group documents by date
-  static FSoDocGroupDocumentsByDate(paDocuments: TMDDocument[]): Record<string, TMDDocument[]> {
-    const oGroups: Record<string, TMDDocument[]> = {};
+  static FSoDocGroupDocumentsByDate(paDocuments: MarkdownDocument[]): Record<string, MarkdownDocument[]> {
+    const oGroups: Record<string, MarkdownDocument[]> = {};
     
     paDocuments.forEach(doc => {
-      const tDateKey = uDateUtils.FSbDATIsToday(doc.FDMdcModified) 
+      const tDateKey = uDateUtils.FSbDATIsToday(doc.updatedAt) 
         ? 'Today'
-        : uDateUtils.FSbDATIsThisWeek(doc.FDMdcModified)
+        : uDateUtils.FSbDATIsThisWeek(doc.updatedAt)
         ? 'This Week'
-        : uDateUtils.FStDATFormatDate(doc.FDMdcModified, 'short');
+        : uDateUtils.FStDATFormatDate(doc.updatedAt, 'short');
       
       if (!oGroups[tDateKey]) {
         oGroups[tDateKey] = [];

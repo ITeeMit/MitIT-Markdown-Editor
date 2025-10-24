@@ -1,23 +1,13 @@
 export interface MarkdownDocument {
-  FNMdcId?: number;
-  FTMdcTitle: string;
-  FTMdcContent: string;
-  FDMdcModified: Date;
-  FDMdcCreated: Date;
-  FNMdcSize: number;
-  FTMdcTags?: string[];
-  FBMdcFavorite: boolean;
-  FTMdcMode?: 'markdown' | 'mermaid' | 'plantuml'; // Editor mode for the document
-  // Legacy properties for backward compatibility
-  id?: string;
-  title?: string;
-  content?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-  tags?: string[];
+  id: string;
+  title: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  tags: string[];
+  mode?: 'markdown' | 'mermaid' | 'plantuml';
   isStarred?: boolean;
   folderId?: string;
-  mode?: 'markdown' | 'mermaid' | 'plantuml'; // Legacy mode property
 }
 
 export interface AppSettings {
@@ -99,7 +89,7 @@ export type TMDDocument = MarkdownDocument;
 
 // Search result type
 export interface SearchResult {
-  documentId: number;
+  documentId: string;
   title: string;
   content: string;
   matchCount: number;
@@ -115,11 +105,11 @@ export interface DocumentStore {
   searchResults: SearchResult[];
   loadDocuments: () => Promise<void>;
   createDocument: (title: string, content?: string) => Promise<void>;
-  updateDocument: (id: number, updates: Partial<MarkdownDocument>) => Promise<void>;
-  deleteDocument: (id: number) => Promise<void>;
+  updateDocument: (id: string, updates: Partial<MarkdownDocument>) => Promise<void>;
+  deleteDocument: (id: string) => Promise<void>;
   setCurrentDocument: (document: MarkdownDocument | null) => void;
   searchDocuments: (query: string) => Promise<void>;
-  toggleFavorite: (id: number) => Promise<void>;
+  toggleFavorite: (id: string) => Promise<void>;
 }
 
 // Settings store types

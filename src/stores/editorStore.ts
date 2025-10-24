@@ -74,15 +74,23 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   // Initialize database
   initializeDatabase: async () => {
     try {
+      console.log('Starting database initialization...');
+      
       // Load settings
+      console.log('Loading settings...');
       const settings = await DatabaseService.getSettings();
+      console.log('Settings loaded:', settings);
       set({ settings });
       
       // Load documents
+      console.log('Loading documents...');
       await get().loadAllDocuments();
+      console.log('Database initialization completed successfully');
       
     } catch (error) {
       console.error('Failed to initialize store:', error);
+      console.error('Error details:', error);
+      throw error; // Re-throw to see the actual error
     }
   },
   
@@ -122,8 +130,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   
   setCurrentDocument: (document: MarkdownDocument | null) => {
     if (document) {
-      // Get the saved mode, with backward compatibility
-      const savedMode = document.mode || document.FTMdcMode || 'markdown';
+      // Get the saved mode
+      const savedMode = document.mode || 'markdown';
       
       set({ 
         currentDocument: document,
@@ -151,8 +159,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       await DatabaseService.updateDocument(currentDocument.id, {
         content,
         title: currentDocument.title,
-        mode: currentMode,
-        FTMdcMode: currentMode // Also save to legacy field
+        mode: currentMode
       });
       
       // Update current document with new updatedAt
@@ -180,15 +187,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         title,
         content: content || '# New Document\n\nStart writing here...',
         tags: [],
-        mode: currentMode,
-        FDMdcModified: now,
-        FDMdcCreated: now,
-        FNMdcSize: (content || '# New Document\n\nStart writing here...').length,
-        FTMdcTitle: title,
-        FTMdcContent: content || '# New Document\n\nStart writing here...',
-        FTMdcTags: [],
-        FBMdcFavorite: false,
-        FTMdcMode: currentMode
+        mode: currentMode
       });
       
       const newDocument = await DatabaseService.getDocument(id);
@@ -210,8 +209,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     try {
       const document = await DatabaseService.getDocument(id);
       if (document) {
-        // Get the saved mode, with backward compatibility
-        const savedMode = document.mode || document.FTMdcMode || 'markdown';
+        // Get the saved mode
+        const savedMode = document.mode || 'markdown';
         
         set({ 
           currentDocument: document,
@@ -281,8 +280,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     try {
       await DatabaseService.updateDocument(currentDocument.id, {
         content,
-        mode: currentMode,
-        FTMdcMode: currentMode
+        mode: currentMode
       });
       
       set({ 

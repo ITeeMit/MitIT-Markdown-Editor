@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
 import { MarkdownDocument } from '@/types';
+import { DatabaseService } from '@/database';
 
 interface OFileManagerProps {
   className?: string;
@@ -28,7 +29,8 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
     createDocument, 
     deleteDocument, 
     setCurrentDocument,
-    updateDocument
+    updateDocument,
+    loadAllDocuments
   } = useEditorStore();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,10 +47,18 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
     if (!newTitle.trim()) return;
     
     try {
-      await updateDocument({
-        title: newTitle.trim(),
-        FTMdcTitle: newTitle.trim()
+      // Find the document to update
+      const docToUpdate = documents.find(doc => doc.id === docId);
+      if (!docToUpdate) return;
+      
+      // Update the specific document by ID
+      await DatabaseService.updateDocument(docId, {
+        title: newTitle.trim()
       });
+      
+      // Reload documents to reflect changes
+      await loadAllDocuments();
+      
       setRenamingDocId(null);
       setRenameTitle('');
       setSelectedDocId(null);
@@ -73,14 +83,14 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
 
   // Filter documents based on search term
   const filteredDocuments = documents.filter(doc => 
-    doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+    doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    doc.content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    doc.tags?.some(tag => tag?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // Get mode icon for document
   const getModeIcon = (doc: MarkdownDocument) => {
-    const mode = doc.mode || doc.FTMdcMode || 'markdown';
+    const mode = doc.mode || 'markdown';
     
     switch (mode) {
       case 'mermaid':
@@ -95,7 +105,7 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
 
   // Get mode label for document
   const getModeLabel = (doc: MarkdownDocument) => {
-    const mode = doc.mode || doc.FTMdcMode || 'markdown';
+    const mode = doc.mode || 'markdown';
     
     switch (mode) {
       case 'mermaid':
@@ -120,17 +130,10 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
     
     try {
       await createDocument({
-        FTMdcTitle: newDocTitle.trim(),
-        FTMdcContent: '',
-        FTMdcTags: [],
-        FNMdcSize: 0,
-        FBMdcFavorite: false,
-        FDMdcCreated: new Date(),
-        FDMdcModified: new Date(),
-        // Legacy properties for compatibility
         title: newDocTitle.trim(),
-        content: '',
-        tags: []
+        content: '# ' + newDocTitle.trim() + '\n\nStart writing here...',
+        tags: [],
+        mode: 'markdown'
       });
       setNewDocTitle('');
       setIsCreating(false);
@@ -154,13 +157,21 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
   };
 
   // Format date for display
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
+  const formatDate = (date: Date | string) => {
+    try {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      if (isNaN(dateObj.getTime())) {
+        return 'Invalid Date';
+      }
+      return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(dateObj);
+    } catch (error) {
+      return 'Invalid Date';
+    }
   };
 
   // Get document preview (first 100 characters)
@@ -181,17 +192,10 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
           
           try {
             await createDocument({
-              FTMdcTitle: fileName,
-              FTMdcContent: content,
-              FTMdcTags: [],
-              FNMdcSize: content.length,
-              FBMdcFavorite: false,
-              FDMdcCreated: new Date(),
-              FDMdcModified: new Date(),
-              // Legacy properties for compatibility
               title: fileName,
               content: content,
-              tags: []
+              tags: [],
+              mode: 'markdown'
             });
           } catch (error) {
             console.error('Failed to upload document:', error);

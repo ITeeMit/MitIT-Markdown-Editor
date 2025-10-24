@@ -33,7 +33,7 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
 
   // Render content based on current mode
   const renderContent = useMemo(() => {
-    const currentContent = content || currentDocument?.FTMdcContent || currentDocument?.content || '';
+    const currentContent = content || currentDocument?.content || '';
     
     if (!currentContent) {
       return '<div class="empty-state"><p>Start writing to see the preview...</p></div>';
@@ -57,12 +57,12 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
       default:
         return '<div class="empty-state"><p>Unknown mode</p></div>';
     }
-  }, [content, currentDocument?.FTMdcContent, currentDocument?.content, currentMode]);
+  }, [content, currentDocument?.content, currentMode]);
 
   // Handle Mermaid rendering
   useEffect(() => {
     if (currentMode === 'mermaid' && mermaidRef.current) {
-      const currentContent = content || currentDocument?.FTMdcContent || currentDocument?.content || '';
+      const currentContent = content || currentDocument?.content || '';
       
       if (currentContent.trim()) {
         try {
@@ -93,12 +93,12 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
         }
       }
     }
-  }, [currentMode, content, currentDocument?.FTMdcContent, currentDocument?.content]);
+  }, [currentMode, content, currentDocument?.content]);
 
   // Handle PlantUML rendering
   useEffect(() => {
     if (currentMode === 'plantuml' && plantumlRef.current) {
-      const currentContent = content || currentDocument?.FTMdcContent || currentDocument?.content || '';
+      const currentContent = content || currentDocument?.content || '';
       
       if (currentContent.trim()) {
         try {
@@ -178,7 +178,7 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
         `;
       }
     }
-  }, [currentMode, content, currentDocument?.FTMdcContent, currentDocument?.content]);
+  }, [currentMode, content, currentDocument?.content]);
 
   // Custom CSS for preview styling
   const previewStyles = `
@@ -522,7 +522,7 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
         text-xs text-gray-500 dark:text-gray-400
       ">
         {currentDocument ? (
-          <span>Previewing: {currentDocument.FTMdcTitle || currentDocument.title}</span>
+          <span>Previewing: {currentDocument.title}</span>
         ) : (
           <span>No document selected</span>
         )}

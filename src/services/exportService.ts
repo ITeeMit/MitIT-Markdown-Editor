@@ -1,15 +1,15 @@
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import { marked } from 'marked';
-import type { ExportOptions, TMDDocument } from '../types';
+import type { ExportOptions, MarkdownDocument } from '../types';
 
 // Export service following Adasoft naming conventions
 export class sExportService {
   // PDF Export
-  static async FSxEXPExportToPDF(poDocument: TMDDocument, poOptions: ExportOptions): Promise<void> {
+  static async FSxEXPExportToPDF(poDocument: MarkdownDocument, poOptions: ExportOptions): Promise<void> {
     try {
       // Validate input
-      if (!poDocument.FTMdcContent || poDocument.FTMdcContent.trim() === '') {
+      if (!poDocument.content || poDocument.content.trim() === '') {
         throw new Error('No content to export');
       }
 
@@ -23,7 +23,7 @@ export class sExportService {
       });
 
       // Convert markdown to HTML first
-      const tHtmlContent = await marked(poDocument.FTMdcContent);
+      const tHtmlContent = await marked(poDocument.content);
       console.log('Markdown converted to HTML successfully');
       
       // Remove HTML tags for PDF (simple text extraction)
@@ -73,7 +73,7 @@ export class sExportService {
       }
       
       // Encode Thai text properly
-      const tEncodedTitle = this.FSxEXPEncodeThaiText(poDocument.FTMdcTitle);
+      const tEncodedTitle = this.FSxEXPEncodeThaiText(poDocument.title);
       pdf.text(tEncodedTitle, nMarginLeft, nMarginTop);
       
       // Add content with proper encoding
@@ -93,12 +93,12 @@ export class sExportService {
       if (poOptions.includeMetadata) {
         const nPageHeight = pdf.internal.pageSize.getHeight();
         pdf.setFontSize(8);
-        pdf.text(`Created: ${poDocument.FDMdcCreated.toLocaleDateString()}`, nMarginLeft, nPageHeight - 10);
-        pdf.text(`Modified: ${poDocument.FDMdcModified.toLocaleDateString()}`, nMarginLeft + 60, nPageHeight - 10);
+        pdf.text(`Created: ${poDocument.createdAt.toLocaleDateString()}`, nMarginLeft, nPageHeight - 10);
+        pdf.text(`Modified: ${poDocument.updatedAt.toLocaleDateString()}`, nMarginLeft + 60, nPageHeight - 10);
       }
       
       // Save the PDF
-      const tFilename = poOptions.filename || `${poDocument.FTMdcTitle || 'document'}.pdf`;
+      const tFilename = poOptions.filename || `${poDocument.title || 'document'}.pdf`;
       console.log('Saving PDF file:', tFilename);
       pdf.save(tFilename);
       console.log('PDF export completed successfully');
@@ -121,9 +121,9 @@ export class sExportService {
   }
 
   // HTML Export
-  static async FSxEXPExportToHTML(poDocument: TMDDocument, poOptions: ExportOptions): Promise<void> {
+  static async FSxEXPExportToHTML(poDocument: MarkdownDocument, poOptions: ExportOptions): Promise<void> {
     try {
-      const tHtmlContent = await marked(poDocument.FTMdcContent);
+      const tHtmlContent = await marked(poDocument.content);
       
       const tFullHtml = `
 <!DOCTYPE html>
@@ -131,7 +131,7 @@ export class sExportService {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${poDocument.FTMdcTitle}</title>
+    <title>${poDocument.title}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -173,13 +173,13 @@ export class sExportService {
     </style>
 </head>
 <body>
-    <h1>${poDocument.FTMdcTitle}</h1>
+    <h1>${poDocument.title}</h1>
     ${tHtmlContent}
     ${poOptions.includeMetadata ? `
     <div class="metadata">
-        <p><strong>Created:</strong> ${poDocument.FDMdcCreated.toLocaleDateString()}</p>
-        <p><strong>Modified:</strong> ${poDocument.FDMdcModified.toLocaleDateString()}</p>
-        ${poDocument.FTMdcTags ? `<p><strong>Tags:</strong> ${poDocument.FTMdcTags}</p>` : ''}
+        <p><strong>Created:</strong> ${poDocument.createdAt.toLocaleDateString()}</p>
+        <p><strong>Modified:</strong> ${poDocument.updatedAt.toLocaleDateString()}</p>
+        ${poDocument.tags ? `<p><strong>Tags:</strong> ${poDocument.tags}</p>` : ''}
     </div>
     ` : ''}
 </body>
@@ -190,7 +190,7 @@ export class sExportService {
       const tUrl = URL.createObjectURL(oBlob);
       const oLink = document.createElement('a');
       oLink.href = tUrl;
-      oLink.download = `${poDocument.FTMdcTitle}.html`;
+      oLink.download = `${poDocument.title}.html`;
       document.body.appendChild(oLink);
       oLink.click();
       document.body.removeChild(oLink);
@@ -202,10 +202,10 @@ export class sExportService {
   }
 
   // DOCX Export
-  static async FSxEXPExportToDOCX(poDocument: TMDDocument, poOptions: ExportOptions): Promise<void> {
+  static async FSxEXPExportToDOCX(poDocument: MarkdownDocument, poOptions: ExportOptions): Promise<void> {
     try {
       // Validate input
-      if (!poDocument.FTMdcContent || poDocument.FTMdcContent.trim() === '') {
+      if (!poDocument.content || poDocument.content.trim() === '') {
         throw new Error('No content to export');
       }
 
@@ -214,7 +214,7 @@ export class sExportService {
       const PizZipModule = await import('pizzip');
       
       // Convert markdown to HTML
-      const html = await marked(poDocument.FTMdcContent);
+      const html = await marked(poDocument.content);
       
       // Create a simple DOCX structure
       const docxZip = new PizZipModule.default();
@@ -237,7 +237,7 @@ export class sExportService {
 </Relationships>`);
       
       // Parse HTML and create DOCX content with formatting
-      const docxContent = this.htmlToDocx(html, poDocument.FTMdcTitle, poOptions);
+      const docxContent = this.htmlToDocx(html, poDocument.title, poOptions);
       
       docxZip.file("word/document.xml", docxContent);
       
@@ -248,7 +248,7 @@ export class sExportService {
       const url = URL.createObjectURL(docxBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = poOptions.filename || `${poDocument.FTMdcTitle || 'document'}.docx`;
+      link.download = poOptions.filename || `${poDocument.title || 'document'}.docx`;
       
       document.body.appendChild(link);
       link.click();
@@ -587,17 +587,17 @@ export class sExportService {
   }
 
   // Excel Export (for document metadata and statistics)
-  static async FSxEXPExportToExcel(aDocuments: TMDDocument[]): Promise<void> {
+  static async FSxEXPExportToExcel(aDocuments: MarkdownDocument[]): Promise<void> {
     try {
       const aWorksheetData = aDocuments.map(doc => ({
-        'Title': doc.FTMdcTitle,
-        'Created': doc.FDMdcCreated.toLocaleDateString(),
-        'Modified': doc.FDMdcModified.toLocaleDateString(),
-        'Size (bytes)': doc.FNMdcSize,
-        'Tags': doc.FTMdcTags || '',
-        'Favorite': doc.FBMdcFavorite ? 'Yes' : 'No',
-        'Word Count': this.FSxEXPCountWords(doc.FTMdcContent),
-        'Character Count': doc.FTMdcContent.length
+        'Title': doc.title,
+        'Created': doc.createdAt.toLocaleDateString(),
+        'Modified': doc.updatedAt.toLocaleDateString(),
+        'Size (bytes)': doc.content.length,
+        'Tags': doc.tags || '',
+        'Favorite': doc.isStarred ? 'Yes' : 'No',
+        'Word Count': this.FSxEXPCountWords(doc.content),
+        'Character Count': doc.content.length
       }));
       
       const oWorksheet = XLSX.utils.json_to_sheet(aWorksheetData);
@@ -623,7 +623,7 @@ export class sExportService {
   }
 
   // Main export function
-  static async FSxEXPExportDocument(poDocument: TMDDocument, poOptions: ExportOptions): Promise<void> {
+  static async FSxEXPExportDocument(poDocument: MarkdownDocument, poOptions: ExportOptions): Promise<void> {
     switch (poOptions.format) {
       case 'pdf':
         await this.FSxEXPExportToPDF(poDocument, poOptions);

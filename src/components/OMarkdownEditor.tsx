@@ -29,16 +29,17 @@ const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({
 
   // Handle content changes with auto-save
   const handleContentChange = useCallback((newContent: string) => {
+    // Update content immediately in store
+    console.log('Content changing from', content?.length || 0, 'to', newContent.length, 'characters');
+    setContent(newContent);
+
+    // Only schedule auto-save when a document is active
     if (currentDocument) {
-      // Update content immediately in store
-      console.log('Content changing from', content?.length || 0, 'to', newContent.length, 'characters');
-      setContent(newContent);
-      
       // Clear existing timeout
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
-      
+
       // Set new auto-save timeout (2 seconds after last change)
       autoSaveTimeoutRef.current = setTimeout(() => {
         saveCurrentDocument();
@@ -55,32 +56,37 @@ const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({
   // Handle keyboard shortcuts
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Ctrl+S for manual save
-    if (e.ctrlKey && e.key === 's') {
+    if ((e.ctrlKey || e.metaKey) && (e.key?.toLowerCase() === 's' || e.code === 'KeyS')) {
       e.preventDefault();
       console.log('Manual save triggered');
       saveCurrentDocument();
       return;
     }
 
-    // Handle keyboard shortcuts
+    // Layout-agnostic keyboard shortcuts using physical key codes
     if (e.ctrlKey || e.metaKey) {
-      switch (e.key.toLowerCase()) {
-        case 'b':
-          e.preventDefault();
-          onFormatText?.('bold');
-          return;
-        case 'i':
-          e.preventDefault();
-          onFormatText?.('italic');
-          return;
-        case 'u':
-          e.preventDefault();
-          onFormatText?.('underline');
-          return;
-        case '`':
-          e.preventDefault();
-          onFormatText?.('code');
-          return;
+      const code = e.code; // e.g., 'KeyB', 'KeyI', 'KeyU', 'Backquote'
+      const key = (e.key || '').toLowerCase();
+
+      if (code === 'KeyB' || key === 'b') {
+        e.preventDefault();
+        onFormatText?.('bold');
+        return;
+      }
+      if (code === 'KeyI' || key === 'i') {
+        e.preventDefault();
+        onFormatText?.('italic');
+        return;
+      }
+      if (code === 'KeyU' || key === 'u') {
+        e.preventDefault();
+        onFormatText?.('underline');
+        return;
+      }
+      if (code === 'Backquote' || key === '`') {
+        e.preventDefault();
+        onFormatText?.('code');
+        return;
       }
     }
 

@@ -5,7 +5,7 @@ import {
   FileSpreadsheet,
   Loader2,
   Printer,
-
+  Database,
   Bold,
   Italic,
   Underline,
@@ -31,6 +31,7 @@ import { useEditorStore, EditorMode } from '@/stores/editorStore';
 
 import { DiagramExportService } from '@/utils/diagramExport';
 import OThemeToggle from './OThemeToggle';
+import DatabaseManagementModal from './DatabaseManagementModal';
 import '../styles/print.css';
 
 interface OToolbarProps {
@@ -110,6 +111,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
   
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [showFontOptions, setShowFontOptions] = useState(false);
+  const [showDatabaseModal, setShowDatabaseModal] = useState(false);
 
   // Font options
   const fontSizes = [10, 12, 14, 16, 18, 20, 24, 28, 32];
@@ -408,7 +410,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
           filename: `${currentDocument.title || 'mermaid-diagram'}.svg`
         });
       } else if (currentMode === 'plantuml') {
-        const content = currentDocument.content || currentDocument.FTMdcContent || '';
+        const content = currentDocument.content || '';
         if (!DiagramExportService.validateDiagramForExport('plantuml', content)) {
           alert('ไม่มีเนื้อหา PlantUML ที่จะ export');
           return;
@@ -711,8 +713,27 @@ const OToolbar: React.FC<OToolbarProps> = ({
       {/* Spacer */}
       <div className="flex-1" />
 
+      {/* Database Tools */}
+      <ToolbarButton
+        onClick={() => setShowDatabaseModal(true)}
+        icon={<Database className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
+        title="Database Management Tools"
+        disabled={false}
+      />
+
+      {/* Separator */}
+      <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
       {/* Theme Toggle */}
       <OThemeToggle />
+
+      {/* Database Management Modal */}
+      {showDatabaseModal && (
+        <DatabaseManagementModal
+          isOpen={showDatabaseModal}
+          onClose={() => setShowDatabaseModal(false)}
+        />
+      )}
     </div>
   );
 };

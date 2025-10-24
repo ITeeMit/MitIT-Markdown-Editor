@@ -7,6 +7,7 @@ import OMarkdownEditor from '@/components/OMarkdownEditor';
 import OPreviewPanel from '@/components/OPreviewPanel';
 import ResizablePanel from '@/components/ResizablePanel';
 import CollapsibleSidebar from '@/components/CollapsibleSidebar';
+import { Toaster } from '@/components/ui/Toaster';
 import { Menu, X } from 'lucide-react';
 
 const Home: React.FC = () => {
@@ -35,76 +36,6 @@ const Home: React.FC = () => {
   const createWelcomeDocument = async () => {
     try {
       await createDocument({
-        FTMdcTitle: 'Welcome to MitIT Markdown Editor',
-        FTMdcContent: `# Welcome to Markdown Editor
-
-This is a powerful markdown editor with real-time preview capabilities.
-
-## Features
-
-- **Real-time Preview**: See your markdown rendered as HTML instantly
-- **Auto-save**: Your work is automatically saved as you type
-- **Export Options**: Export to PDF, Excel, or Markdown files
-- **Import Support**: Import existing markdown files
-- **Dark Mode**: Toggle between light and dark themes
-- **Offline Support**: Works offline with PWA capabilities
-
-## Getting Started
-
-1. Start typing in the editor panel on the left
-2. See the live preview on the right
-3. Use the toolbar to save, import, or export your documents
-4. Create new documents using the file manager
-
-## Markdown Syntax Examples
-
-### Headers
-\`\`\`
-# H1 Header
-## H2 Header
-### H3 Header
-\`\`\`
-
-### Lists
-- Unordered list item 1
-- Unordered list item 2
-  - Nested item
-
-1. Ordered list item 1
-2. Ordered list item 2
-
-### Code
-Inline \`code\` and code blocks:
-
-\`\`\`javascript
-function hello() {
-  console.log('Hello, World!');
-}
-\`\`\`
-
-### Links and Images
-[Link text](https://example.com)
-![Alt text](https://via.placeholder.com/300x200)
-
-### Tables
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-| Row 1    | Data     | More     |
-| Row 2    | Data     | More     |
-
-### Blockquotes
-> This is a blockquote
-> It can span multiple lines
-
----
-
-Happy writing! 🚀`,
-        FTMdcTags: ['welcome'],
-        FNMdcSize: 0,
-        FBMdcFavorite: false,
-        FDMdcCreated: new Date(),
-        FDMdcModified: new Date(),
-        // Legacy properties for compatibility
         title: 'Welcome to MitIT Markdown Editor',
         content: `# Welcome to Markdown Editor
 
@@ -169,7 +100,8 @@ function hello() {
 ---
 
 Happy writing! 🚀`,
-        tags: ['welcome']
+        tags: ['welcome'],
+        mode: 'markdown'
       });
       
       // Set the welcome document as current
@@ -182,8 +114,7 @@ Happy writing! 🚀`,
 
   // Format text function
   const handleFormatText = (format: string, value?: string | number) => {
-    if (!currentDocument) return;
-
+    // อนุญาตให้จัดรูปแบบแม้ยังไม่มีเอกสารที่ active
     const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
     if (!textarea) return;
 
@@ -214,10 +145,22 @@ Happy writing! 🚀`,
         newCursorPos = selectedText ? start + newText.length : start + 2;
         break;
       case 'heading': {
-        const level = value as number;
-        const headingPrefix = '#'.repeat(level) + ' ';
+        const levelNum = Number(value) || 1;
+        const headingPrefix = '#'.repeat(levelNum) + ' ';
         newText = `${headingPrefix}${selectedText}`;
         newCursorPos = start + headingPrefix.length + selectedText.length;
+        break;
+      }
+      case 'orderedList': {
+        const listPrefix = '1. ';
+        newText = `${listPrefix}${selectedText}`;
+        newCursorPos = start + listPrefix.length + selectedText.length;
+        break;
+      }
+      case 'unorderedList': {
+        const listPrefix = '- ';
+        newText = `${listPrefix}${selectedText}`;
+        newCursorPos = start + listPrefix.length + selectedText.length;
         break;
       }
       case 'list': {
@@ -231,6 +174,7 @@ Happy writing! 🚀`,
         newText = `\`${selectedText}\``;
         newCursorPos = selectedText ? start + newText.length : start + 1;
         break;
+      case 'codeBlock':
       case 'codeblock':
         newText = `\`\`\`\n${selectedText}\n\`\`\``;
         newCursorPos = selectedText ? start + newText.length : start + 4;
@@ -352,6 +296,9 @@ Happy writing! 🚀`,
             </div>
           </div>
         </div>
+        
+        {/* Toast Notifications */}
+        <Toaster />
       </div>
     </ThemeProvider>
   );

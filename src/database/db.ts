@@ -90,6 +90,10 @@ export class mMarkdownDB {
     return setting?.FTSetValue;
   }
 
+  static async FSaMDSGetAllSettings(): Promise<TMDSettings[]> {
+    return await db.tMDSettings.toArray();
+  }
+
   static async FSxMDSSetSetting(ptKey: string, ptValue: string): Promise<void> {
     const existing = await db.tMDSettings.where('FTSetKey').equals(ptKey).first();
     
@@ -105,5 +109,9 @@ export class mMarkdownDB {
         FDSetModified: new Date()
       });
     }
+  }
+
+  static async FStMDSUpdateSetting(ptKey: string, ptValue: string): Promise<void> {
+    return await this.FSxMDSSetSetting(ptKey, ptValue);
   }
 }
