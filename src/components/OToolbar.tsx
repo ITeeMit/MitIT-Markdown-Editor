@@ -106,7 +106,8 @@ const OToolbar: React.FC<OToolbarProps> = ({
     documents, 
     saveDocument,
     currentMode,
-    switchMode
+    switchMode,
+    content
   } = useEditorStore();
   
   const [isExporting, setIsExporting] = useState<string | null>(null);
@@ -148,17 +149,21 @@ const OToolbar: React.FC<OToolbarProps> = ({
   };
 
   const handleExportMarkdown = async () => {
-    if (!currentDocument) {
-      alert('No document to export');
-      return;
-    }
-
     try {
       setIsExporting('markdown');
-      ExportService.exportAsMarkdown(
-        currentDocument.content,
-        currentDocument.title
-      );
+
+      // ใช้ source ล่าสุดจาก editor store เสมอ
+      let sourceContent = content || '';
+
+      // รองรับทั้ง 3 โหมด: ห่อด้วย fenced block เมื่อเป็น Mermaid/PlantUML
+      if (currentMode === 'mermaid') {
+        sourceContent = `\`\`\`mermaid\n${sourceContent}\n\`\`\``;
+      } else if (currentMode === 'plantuml') {
+        sourceContent = `\`\`\`plantuml\n${sourceContent}\n\`\`\``;
+      }
+
+      const filename = (currentDocument?.title || 'Untitled') + '.md';
+      ExportService.exportAsMarkdown(sourceContent, filename);
     } catch (error) {
       console.error('Failed to export markdown:', error);
       alert('Failed to export markdown file');
@@ -667,6 +672,14 @@ const OToolbar: React.FC<OToolbarProps> = ({
 
       {/* Export Operations */}
       <div className="flex items-center gap-2">
+        {/* Save As Markdown - สำหรับทั้ง 3 โหมด ใช้ source ล่าสุด */}
+        <ToolbarButton
+          onClick={handleExportMarkdown}
+          icon={<FileText className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
+          title="บันทึกเป็น Markdown (.md)"
+          disabled={(content || '').trim().length === 0}
+          loading={isExporting === 'markdown'}
+        />
         {/* Standard Export Buttons (for Markdown mode) */}
         {currentMode === 'markdown' && (
           <>

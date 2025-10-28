@@ -8,7 +8,7 @@ import {
   Tag,
   MoreVertical,
   Upload,
-  HelpCircle,
+  FileSpreadsheet,
   GitBranch,
   Workflow,
   Edit
@@ -16,6 +16,7 @@ import {
 import { useEditorStore } from '@/stores/editorStore';
 import { MarkdownDocument } from '@/types';
 import { DatabaseService } from '@/database';
+import { csvToMarkdownTable } from '@/utils/csvUtils';
 
 interface OFileManagerProps {
   className?: string;
@@ -30,7 +31,10 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
     deleteDocument, 
     setCurrentDocument,
     updateDocument,
-    loadAllDocuments
+    loadAllDocuments,
+    setContent,
+    currentMode,
+    content
   } = useEditorStore();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,6 +45,7 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
   const [renamingDocId, setRenamingDocId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   // Handle document renaming
   const handleRenameDocument = async (docId: string, newTitle: string) => {
@@ -254,21 +259,25 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
       ">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            {createWelcomeDocument && (
-              <button
-                onClick={createWelcomeDocument}
-                className="
-                  flex items-center gap-1 px-3 py-1
-                  bg-purple-500 hover:bg-purple-600
-                  text-white text-sm rounded-lg
-                  transition-colors duration-200
-                "
-                title="Show Welcome Document"
-              >
-                <HelpCircle className="w-4 h-4" />
-                Help
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (currentMode !== 'markdown') {
+                  alert('กรุณาเปลี่ยนไปที่โหมด Markdown ก่อนนำเข้า CSV');
+                  return;
+                }
+                csvInputRef.current?.click();
+              }}
+              className="
+                flex items-center gap-1 px-3 py-1
+                bg-purple-500 hover:bg-purple-600
+                text-white text-sm rounded-lg
+                transition-colors duration-200
+              "
+              title="Import CSV to Markdown Table"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Imp. CSV
+            </button>
             
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -307,6 +316,44 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '', createWelco
           accept=".md,.markdown,text/markdown"
           multiple
           onChange={handleFileInputChange}
+          className="hidden"
+        />
+        {/* Hidden CSV input */}
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          multiple={false}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            if (currentMode !== 'markdown') {
+              alert('กรุณาเปลี่ยนไปที่โหมด Markdown ก่อนนำเข้า CSV');
+              e.currentTarget.value = '';
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const text = String(reader.result || '');
+                const table = csvToMarkdownTable(text, { title: file.name });
+                const prefix = content && content.trim().length > 0 ? '\n\n' : '';
+                setContent(`${content || ''}${prefix}${table}`);
+                alert('นำเข้า CSV และสร้างตาราง Markdown สำเร็จ');
+              } catch (error) {
+                console.error('Failed to import CSV:', error);
+                alert('เกิดข้อผิดพลาดในการนำเข้า CSV');
+              } finally {
+                e.currentTarget.value = '';
+              }
+            };
+            reader.onerror = () => {
+              console.error('Failed to read CSV file');
+              alert('ไม่สามารถอ่านไฟล์ CSV ได้');
+              e.currentTarget.value = '';
+            };
+            reader.readAsText(file);
+          }}
           className="hidden"
         />
         
