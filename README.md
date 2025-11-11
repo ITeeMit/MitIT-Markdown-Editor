@@ -16,6 +16,12 @@
 - **Markdown Mode**: Full-featured markdown editing with live preview
 - **Mermaid Mode**: Create flowcharts, sequence diagrams, and more
 - **PlantUML Mode**: Generate UML diagrams with PlantUML syntax
+- **Find & Replace**: 
+  - 🔍 **Ctrl+F**: Quick find text in editor
+  - 🔄 **Ctrl+H**: Find and replace functionality
+  - Case-sensitive search option
+  - Replace single or all occurrences
+  - Navigate through matches with keyboard shortcuts
 
 ### 📤 Export Options
 - **Markdown Mode**: 
@@ -38,6 +44,7 @@
 
 ### 🎨 User Experience
 - **Real-time Preview**: Live preview for all editing modes
+- **Find & Replace**: Powerful search with Ctrl+F and Ctrl+H shortcuts
 - **Theme Support**: Light and dark theme toggle
 - **Responsive Design**: Works seamlessly on desktop and mobile
 - **Modern UI**: Clean and intuitive user interface
@@ -115,6 +122,21 @@ pnpm build
 1. **Create/Open Documents**: Use the document manager to create new files or open existing ones
 2. **Choose Your Mode**: Select between Markdown, Mermaid, or PlantUML editing modes
 3. **Real-time Editing**: Write your content with live preview in the right panel
+
+### Find & Replace
+- **Ctrl+F**: Open Find dialog
+  - Search for text in the editor
+  - Navigate matches with **Enter** (next) or **Shift+Enter** (previous)
+  - Use arrow buttons to move between results
+  - Toggle case-sensitive search
+  - Press **Esc** to close
+  
+- **Ctrl+H**: Open Find & Replace dialog
+  - All Find features included
+  - **Replace** button: Replace current match
+  - **Replace All** button: Replace all occurrences at once
+  - Auto-scroll to highlighted matches
+  - Clear highlights after replace all
 
 ### Markdown Mode
 - Write markdown content with syntax highlighting

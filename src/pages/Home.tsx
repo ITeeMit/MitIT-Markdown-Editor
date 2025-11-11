@@ -272,8 +272,6 @@ Happy writing! 🚀`,
             <ResizablePanel
               leftPanel={
                 <OMarkdownEditor 
-                  fontSize={fontSize}
-                  fontFamily={fontFamily}
                   onFormatText={handleFormatText}
                 />
               }

@@ -1,19 +1,12 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
+import FindReplaceDialog from './FindReplaceDialog';
 
 interface OMarkdownEditorProps {
-  className?: string;
-  placeholder?: string;
-  fontSize?: number;
-  fontFamily?: string;
   onFormatText?: (format: string, value?: string | number) => void;
 }
 
 const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({ 
-  className = '',
-  placeholder = 'Start writing your markdown here...',
-  fontSize = 14,
-  fontFamily = 'Inter, system-ui, sans-serif',
   onFormatText
 }) => {
 
@@ -26,6 +19,13 @@ const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Find & Replace state
+  const [findReplaceOpen, setFindReplaceOpen] = useState(false);
+  const [findReplaceMode, setFindReplaceMode] = useState<'find' | 'replace'>('find');
+  const [searchMatches, setSearchMatches] = useState<number[]>([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [lastSearchText, setLastSearchText] = useState('');
 
   // Handle content changes with auto-save
   const handleContentChange = useCallback((newContent: string) => {
@@ -55,6 +55,22 @@ const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({
 
   // Handle keyboard shortcuts
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Ctrl+F for Find
+    if ((e.ctrlKey || e.metaKey) && (e.key?.toLowerCase() === 'f' || e.code === 'KeyF')) {
+      e.preventDefault();
+      setFindReplaceMode('find');
+      setFindReplaceOpen(true);
+      return;
+    }
+
+    // Ctrl+H for Replace
+    if ((e.ctrlKey || e.metaKey) && (e.key?.toLowerCase() === 'h' || e.code === 'KeyH')) {
+      e.preventDefault();
+      setFindReplaceMode('replace');
+      setFindReplaceOpen(true);
+      return;
+    }
+
     // Ctrl+S for manual save
     if ((e.ctrlKey || e.metaKey) && (e.key?.toLowerCase() === 's' || e.code === 'KeyS')) {
       e.preventDefault();
@@ -109,6 +125,147 @@ const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({
     }
   };
 
+  // Find functionality
+  const handleFind = useCallback((searchText: string, direction: 'next' | 'prev', isNewSearch: boolean = false, caseSensitive: boolean = false) => {
+    if (!searchText || !content) {
+      setSearchMatches([]);
+      setCurrentMatchIndex(0);
+      return;
+    }
+
+    // Determine if this is truly a new search
+    const isActuallyNewSearch = isNewSearch || searchText !== lastSearchText;
+    
+    if (isActuallyNewSearch) {
+      setLastSearchText(searchText);
+    }
+
+    // Always recalculate matches for new search
+    const matches: number[] = [];
+    const text = caseSensitive ? content : content.toLowerCase();
+    const search = caseSensitive ? searchText : searchText.toLowerCase();
+
+    let index = text.indexOf(search);
+    while (index !== -1) {
+      matches.push(index);
+      index = text.indexOf(search, index + 1);
+    }
+
+    setSearchMatches(matches);
+
+    if (matches.length > 0) {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        let newIndex;
+        
+        if (isActuallyNewSearch) {
+          // New search: start from beginning
+          newIndex = 0;
+        } else if (direction === 'next') {
+          // Navigate to next match
+          newIndex = (currentMatchIndex + 1) % matches.length;
+        } else {
+          // Navigate to previous match
+          newIndex = currentMatchIndex - 1 < 0 ? matches.length - 1 : currentMatchIndex - 1;
+        }
+        
+        setCurrentMatchIndex(newIndex);
+        const matchPos = matches[newIndex];
+        
+        // Highlight the match and move caret like standard Windows behavior
+        textarea.setSelectionRange(matchPos, matchPos + searchText.length);
+        // Ensure selection highlight is visible
+        textarea.focus({ preventScroll: true });
+
+        // Scroll to center the match
+        const targetScroll = (matchPos / content.length) * textarea.scrollHeight;
+        textarea.scrollTop = Math.max(0, targetScroll - textarea.clientHeight / 2);
+      }
+    } else {
+      setCurrentMatchIndex(0);
+    }
+  }, [content, currentMatchIndex, lastSearchText]);
+
+  // Replace functionality
+  const handleReplace = useCallback((searchText: string, replaceText: string, replaceAll: boolean, caseSensitive: boolean) => {
+    if (!searchText || !content) return;
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    if (replaceAll) {
+      // Escape special regex characters
+      const escapedSearch = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const flags = caseSensitive ? 'g' : 'gi';
+      const regex = new RegExp(escapedSearch, flags);
+      const newContent = content.replace(regex, replaceText);
+      handleContentChange(newContent);
+      
+      // Clear highlights after replace all
+      setSearchMatches([]);
+      setCurrentMatchIndex(0);
+      setLastSearchText('');
+      
+      // Clear selection
+      setTimeout(() => {
+        if (textarea) {
+          textarea.setSelectionRange(0, 0);
+        }
+      }, 0);
+    } else {
+      // Replace current match only
+      if (searchMatches.length > 0 && currentMatchIndex < searchMatches.length) {
+        const matchPos = searchMatches[currentMatchIndex];
+        const before = content.substring(0, matchPos);
+        const after = content.substring(matchPos + searchText.length);
+        const newContent = before + replaceText + after;
+        handleContentChange(newContent);
+        
+        // After replacing, find next match with updated content
+        setTimeout(() => {
+          // Manually recalculate matches with new content
+          const text = newContent;
+          const search = searchText;
+          const newMatches: number[] = [];
+          
+          let index = text.indexOf(search);
+          while (index !== -1) {
+            newMatches.push(index);
+            index = text.indexOf(search, index + 1);
+          }
+          
+          if (newMatches.length > 0) {
+            setSearchMatches(newMatches);
+            // Stay at same index or wrap to 0 if we're at the end
+            const nextIndex = currentMatchIndex < newMatches.length ? currentMatchIndex : 0;
+            setCurrentMatchIndex(nextIndex);
+            
+            // Highlight next match
+            const nextMatchPos = newMatches[nextIndex];
+            textarea.setSelectionRange(nextMatchPos, nextMatchPos + searchText.length);
+          } else {
+            // No more matches
+            setSearchMatches([]);
+            setCurrentMatchIndex(0);
+            setLastSearchText('');
+            textarea.setSelectionRange(0, 0);
+          }
+        }, 0);
+      }
+    }
+  }, [content, searchMatches, currentMatchIndex, handleContentChange]);
+
+  // Reset search when dialog closes
+  const handleCloseFindReplace = useCallback(() => {
+    setFindReplaceOpen(false);
+    setSearchMatches([]);
+    setCurrentMatchIndex(0);
+    setLastSearchText('');
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
+
   // Auto-resize textarea
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
@@ -140,7 +297,17 @@ const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({
   }, []);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+      {/* Find & Replace Dialog */}
+      <FindReplaceDialog
+        isOpen={findReplaceOpen}
+        mode={findReplaceMode}
+        onClose={handleCloseFindReplace}
+        onFind={handleFind}
+        onReplace={handleReplace}
+        currentMatch={currentMatchIndex + 1}
+        totalMatches={searchMatches.length}
+      />
       <textarea
         ref={textareaRef}
         value={content || ''}
