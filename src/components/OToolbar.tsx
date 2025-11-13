@@ -21,8 +21,6 @@ import {
   FileTextIcon,
   GitBranch,
   Workflow,
-  Download,
-  Image,
   FileImage
 } from 'lucide-react';
 import { marked } from 'marked';
@@ -113,6 +111,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [showFontOptions, setShowFontOptions] = useState(false);
   const [showDatabaseModal, setShowDatabaseModal] = useState(false);
+  const [plantUMLTheme, setPlantUMLTheme] = useState<string>('default');
 
   // Font options
   const fontSizes = [10, 12, 14, 16, 18, 20, 24, 28, 32];
@@ -123,6 +122,87 @@ const OToolbar: React.FC<OToolbarProps> = ({
     { name: 'Arial', value: 'Arial, sans-serif' },
     { name: 'Times New Roman', value: 'Times New Roman, serif' }
   ];
+
+  // PlantUML themes
+  const plantUMLThemes = [
+    { name: 'Default', value: 'default' },
+    { name: 'amiga', value: 'amiga' },
+    { name: 'aws-orange', value: 'aws-orange' },
+    { name: 'black-knight', value: 'black-knight' },
+    { name: 'bluegray', value: 'bluegray' },
+    { name: 'blueprint', value: 'blueprint' },
+    { name: 'carbon-gray', value: 'carbon-gray' },
+    { name: 'cerulean', value: 'cerulean' },
+    { name: 'cloudscape-design', value: 'cloudscape-design' },
+    { name: 'crt-amber', value: 'crt-amber' },
+    { name: 'cyborg', value: 'cyborg' },
+    { name: 'hacker', value: 'hacker' },
+    { name: 'lightgray', value: 'lightgray' },
+    { name: 'mars', value: 'mars' },
+    { name: 'materia', value: 'materia' },
+    { name: 'metal', value: 'metal' },
+    { name: 'mimeograph', value: 'mimeograph' },
+    { name: 'minty', value: 'minty' },
+    { name: 'mono', value: 'mono' },
+    { name: 'none', value: 'none' },
+    { name: 'plain', value: 'plain' },
+    { name: 'reddress-darkblue', value: 'reddress-darkblue' },
+    { name: 'reddress-lightblue', value: 'reddress-lightblue' },
+    { name: 'sandstone', value: 'sandstone' },
+    { name: 'silver', value: 'silver' },
+    { name: 'sketchy', value: 'sketchy' },
+    { name: 'spacelab', value: 'spacelab' },
+    { name: 'Sunlust', value: 'Sunlust' },
+    { name: 'superhero', value: 'superhero' },
+    { name: 'toy', value: 'toy' },
+    { name: 'united', value: 'united' },
+    { name: 'vibrant', value: 'vibrant' }
+  ];
+
+  // Detect current PlantUML theme from content
+  React.useEffect(() => {
+    if (currentMode === 'plantuml' && content) {
+      const themeMatch = content.match(/^\s*!theme\s+(\S+)/m);
+      if (themeMatch) {
+        setPlantUMLTheme(themeMatch[1]);
+      } else {
+        setPlantUMLTheme('default');
+      }
+    }
+  }, [currentMode, content]);
+
+  // Handle PlantUML theme change
+  const handlePlantUMLThemeChange = (newTheme: string) => {
+    if (currentMode !== 'plantuml') return;
+    
+    setPlantUMLTheme(newTheme);
+    
+    let newContent = content;
+    const themeRegex = /^(\s*)!theme\s+\S+/m;
+    const startumlMatch = newContent.match(/(@startuml)/i);
+    
+    if (newTheme === 'default') {
+      // Remove theme directive if exists
+      newContent = newContent.replace(themeRegex, '');
+    } else {
+      const themeDirective = `!theme ${newTheme}`;
+      
+      if (themeRegex.test(newContent)) {
+        // Replace existing theme
+        newContent = newContent.replace(themeRegex, themeDirective);
+      } else if (startumlMatch) {
+        // Add theme after @startuml
+        const startumlIndex = startumlMatch.index! + startumlMatch[0].length;
+        newContent = 
+          newContent.slice(0, startumlIndex) + 
+          '\n' + themeDirective + 
+          newContent.slice(startumlIndex);
+      }
+    }
+    
+    // Update content in store
+    useEditorStore.getState().setContent(newContent);
+  };
 
   // Format text functions
   const handleBold = () => onFormatText?.('bold');
@@ -519,6 +599,28 @@ const OToolbar: React.FC<OToolbarProps> = ({
 
       {/* Font Controls */}
       <div className="flex items-center gap-2 relative">
+        {/* PlantUML Theme Selector - Only show in PlantUML mode */}
+        {currentMode === 'plantuml' && (
+          <select
+            value={plantUMLTheme}
+            onChange={(e) => handlePlantUMLThemeChange(e.target.value)}
+            className="
+              px-2 py-1 text-sm rounded
+              bg-white dark:bg-gray-800
+              border border-gray-300 dark:border-gray-600
+              text-gray-700 dark:text-gray-300
+              focus:outline-none focus:ring-2 focus:ring-purple-500
+            "
+            title="PlantUML Theme"
+          >
+            {plantUMLThemes.map(theme => (
+              <option key={theme.value} value={theme.value}>
+                {theme.name === 'Default' ? 'No Theme' : theme.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         <ToolbarButton
           onClick={() => setShowFontOptions(!showFontOptions)}
           icon={<Type className="w-5 h-5 text-gray-600 dark:text-gray-300" />}

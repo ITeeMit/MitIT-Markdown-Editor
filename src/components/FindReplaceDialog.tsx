@@ -5,7 +5,7 @@ interface FindReplaceDialogProps {
   isOpen: boolean;
   mode: 'find' | 'replace';
   onClose: () => void;
-  onFind: (searchText: string, direction: 'next' | 'prev', isNewSearch?: boolean, caseSensitive?: boolean) => void;
+  onFind: (searchText: string, direction: 'next' | 'prev', isNewSearch?: boolean) => void;
   onReplace: (searchText: string, replaceText: string, replaceAll: boolean, caseSensitive: boolean) => void;
   currentMatch?: number;
   totalMatches?: number;
@@ -41,10 +41,10 @@ const FindReplaceDialog: React.FC<FindReplaceDialogProps> = ({
     if (searchText && searchText !== lastSearchText) {
       // New search text - trigger search from beginning
       setLastSearchText(searchText);
-      onFind(searchText, 'next', true, caseSensitive);
+      onFind(searchText, 'next', true);
     } else if (searchText && caseSensitive !== undefined) {
       // Case sensitivity changed - re-run search
-      onFind(searchText, 'next', true, caseSensitive);
+      onFind(searchText, 'next', true);
     }
   }, [searchText, caseSensitive]);
   
@@ -61,9 +61,9 @@ const FindReplaceDialog: React.FC<FindReplaceDialogProps> = ({
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (e.shiftKey) {
-        onFind(searchText, 'prev', false, caseSensitive);
+        onFind(searchText, 'prev', false);
       } else {
-        onFind(searchText, 'next', false, caseSensitive);
+        onFind(searchText, 'next', false);
       }
     }
   };
@@ -97,10 +97,9 @@ const FindReplaceDialog: React.FC<FindReplaceDialogProps> = ({
             onKeyDown={handleKeyDown}
             placeholder="Find"
             className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            data-find-search
           />
           <button
-            onClick={() => onFind(searchText, 'prev', false, caseSensitive)}
+            onClick={() => onFind(searchText, 'prev', false)}
             className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
             disabled={!searchText || totalMatches === 0}
             title="Previous (Shift+Enter)"
@@ -108,7 +107,7 @@ const FindReplaceDialog: React.FC<FindReplaceDialogProps> = ({
             <ChevronUp size={16} />
           </button>
           <button
-            onClick={() => onFind(searchText, 'next', false, caseSensitive)}
+            onClick={() => onFind(searchText, 'next', false)}
             className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
             disabled={!searchText || totalMatches === 0}
             title="Next (Enter)"

@@ -126,7 +126,7 @@ const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({
   };
 
   // Find functionality
-  const handleFind = useCallback((searchText: string, direction: 'next' | 'prev', isNewSearch: boolean = false, caseSensitive: boolean = false) => {
+  const handleFind = useCallback((searchText: string, direction: 'next' | 'prev', isNewSearch: boolean = false) => {
     if (!searchText || !content) {
       setSearchMatches([]);
       setCurrentMatchIndex(0);
@@ -142,9 +142,9 @@ const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({
 
     // Always recalculate matches for new search
     const matches: number[] = [];
-    const text = caseSensitive ? content : content.toLowerCase();
-    const search = caseSensitive ? searchText : searchText.toLowerCase();
-
+    const text = content;
+    const search = searchText;
+    
     let index = text.indexOf(search);
     while (index !== -1) {
       matches.push(index);
@@ -172,14 +172,12 @@ const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({
         setCurrentMatchIndex(newIndex);
         const matchPos = matches[newIndex];
         
-        // Highlight the match and move caret like standard Windows behavior
+        // Highlight the match without stealing focus from search input
         textarea.setSelectionRange(matchPos, matchPos + searchText.length);
-        // Ensure selection highlight is visible
-        textarea.focus({ preventScroll: true });
-
-        // Scroll to center the match
+        
+        // Scroll to match
         const targetScroll = (matchPos / content.length) * textarea.scrollHeight;
-        textarea.scrollTop = Math.max(0, targetScroll - textarea.clientHeight / 2);
+        textarea.scrollTop = targetScroll - textarea.clientHeight / 2;
       }
     } else {
       setCurrentMatchIndex(0);
