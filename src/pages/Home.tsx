@@ -127,6 +127,52 @@ Happy writing! 🚀`,
     let newText = '';
     let newCursorPos = start;
 
+    const convertAgencyDoc = (text: string) => {
+      const lines = text.replace(/\r\n?/g, '\n').split('\n');
+      const out: string[] = [];
+      let i = 0; let section = '';
+      const push = (s: string) => out.push(s);
+      const next = () => (i < lines.length ? lines[i].trim() : '');
+      const take = () => lines[i++] || '';
+      const splitCols = (s: string) => s.split(/\t+|\s{2,}/).map(t => t.trim()).filter(Boolean);
+      const isTableHeaderCandidate = (s: string) => {
+        if (!s || /^\*\s/.test(s) || /^\-\s/.test(s) || /^\d+[\.|\)|-]\s+/.test(s) || /^\|/.test(s) || /^#{1,6}\s/.test(s)) return false;
+        const cols = splitCols(s);
+        return cols.length >= 2;
+      };
+      while (i < lines.length && /ปรับเป็น markdown format/i.test(next())) i++;
+      if (i < lines.length) { push(`# ${next()}`); i++; push(''); }
+      while (i < lines.length) {
+        const s = next(); if (!s) { take(); push(''); continue; }
+        if (/^\d+\.0\s/.test(s)) { section = s.match(/^\d+\.0/)![0]; push(`## ${s}`); take(); push(''); continue; }
+        if (/^\d+\.\d+\s/.test(s)) { push(`### ${s}`); take(); push(''); continue; }
+        if (/^\*\s+([^:]+):\s*(.+)/.test(s)) { const m = s.match(/^\*\s+([^:]+):\s*(.+)/)!; push(`- **${m[1].trim()}**: ${m[2].trim()}  `); take(); continue; }
+        if (/^\*\s+(.+)/.test(s)) { push(`- ${s.replace(/^\*\s+/, '')}`); take(); continue; }
+        if (section.startsWith('3.0') && /^\*\s+([^:]+):\s*(.+)/.test(s)) { const m = s.match(/^\*\s+([^:]+):\s*(.+)/)!; push(`- **${m[1].trim()}**: ${m[2].trim()}`); take(); continue; }
+        if (isTableHeaderCandidate(s)) {
+          const headerRaw = take();
+          const headerCols = splitCols(headerRaw);
+          push('| ' + headerCols.map(c => `**${c}**`).join(' | ') + ' |');
+          push('|' + headerCols.map(() => '---').join(' | ') + ' |');
+          while (i < lines.length) {
+            const r = lines[i].trim();
+            if (!r || /^\d+\.0\s/.test(r) || /^\d+\.\d+\s/.test(r) || /^\*\s/.test(r) || /^\-\s/.test(r)) break;
+            const cols = splitCols(lines[i]);
+            if (cols.length < 2) break;
+            const cells = headerCols.map((_, idx) => (idx < cols.length ? cols[idx] : ''));
+            push('| ' + cells.join(' | ') + ' |');
+            i++;
+          }
+          push('');
+          continue;
+        }
+        if (/^\d+[\.|\)|-]\s+/.test(s)) { const m = s.match(/^(\d+)[\.|\)|-]\s+(.*)$/)!; push(`${m[1]}. ${m[2]}`); take(); continue; }
+        if (/^ผู้รับผิดชอบหลัก:\s*(.+)/.test(s)) { const m = s.match(/^ผู้รับผิดชอบหลัก:\s*(.+)/)!; push(`**ผู้รับผิดชอบหลัก**: ${m[1]}`); take(); continue; }
+        push(take());
+      }
+      return out.join('\n');
+    };
+
     switch (format) {
       case 'bold':
         newText = `**${selectedText}**`;
@@ -179,6 +225,24 @@ Happy writing! 🚀`,
         newText = `\`\`\`\n${selectedText}\n\`\`\``;
         newCursorPos = selectedText ? start + newText.length : start + 4;
         break;
+      case 'adjustSyntax': {
+        const scope = selectedText && selectedText.length > 0 ? selectedText : textarea.value;
+        const converted = convertAgencyDoc(scope);
+        if (selectedText && selectedText.length > 0) {
+          newText = converted;
+          newCursorPos = start + converted.length;
+          const updatedContent = beforeText + newText + afterText;
+          setContent(updatedContent);
+        } else {
+          setContent(converted);
+          newCursorPos = converted.length;
+        }
+        setTimeout(() => {
+          textarea.focus();
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }, 0);
+        return;
+      }
       default:
         return;
     }

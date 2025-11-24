@@ -99,6 +99,11 @@ const OMarkdownEditor: React.FC<OMarkdownEditorProps> = ({
         onFormatText?.('underline');
         return;
       }
+      if (code === 'KeyM' || key === 'm') {
+        e.preventDefault();
+        onFormatText?.('adjustSyntax');
+        return;
+      }
       if (code === 'Backquote' || key === '`') {
         e.preventDefault();
         onFormatText?.('code');

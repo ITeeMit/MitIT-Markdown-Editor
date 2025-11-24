@@ -18,6 +18,7 @@ import {
   Code,
   Code2,
   Type,
+  Wand2,
   FileTextIcon,
   GitBranch,
   Workflow,
@@ -227,6 +228,8 @@ const OToolbar: React.FC<OToolbarProps> = ({
       }
     }
   };
+
+  const handleAdjustSyntax = () => onFormatText?.('adjustSyntax');
 
   const handleExportMarkdown = async () => {
     try {
@@ -591,6 +594,12 @@ const OToolbar: React.FC<OToolbarProps> = ({
           title="Save Document (Ctrl+S)"
           disabled={!currentDocument}
           loading={isExporting === 'save'}
+        />
+        <ToolbarButton
+          onClick={handleAdjustSyntax}
+          icon={<Wand2 className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
+          title="ปรับ Markdown Syntax (Ctrl+M)"
+          disabled={!currentDocument}
         />
       </div>
 
