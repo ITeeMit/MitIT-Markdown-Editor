@@ -173,56 +173,215 @@ export class ExportService {
         throw new Error('No content to export');
       }
 
-      // Dynamically import docxtemplater to avoid issues with static imports
-      await import('docxtemplater');
-      const PizZipModule = await import('pizzip');
-      
       // Convert markdown to HTML
       const html = await marked(content);
       
-      // Create a simple DOCX structure
-      const docxZip = new PizZipModule.default();
+      // Create a temporary container
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+
+      // Process Mermaid diagrams
+      const mermaidBlocks = tempDiv.querySelectorAll('code.language-mermaid');
+      for (let i = 0; i < mermaidBlocks.length; i++) {
+        const block = mermaidBlocks[i];
+        const code = block.textContent || '';
+        try {
+          const { default: mermaid } = await import('mermaid');
+          mermaid.initialize({ startOnLoad: false, theme: 'default' });
+          const id = `mermaid-export-${Date.now()}-${i}`;
+          const { svg } = await mermaid.render(id, code);
+          
+          const pngDataUrl = await this.svgToPng(svg);
+
+          const img = document.createElement('img');
+          img.src = pngDataUrl;
+          img.style.maxWidth = '100%';
+
+          const pre = block.parentElement;
+          if (pre && pre.tagName === 'PRE') {
+            pre.parentNode?.replaceChild(img, pre);
+          }
+        } catch (err) {
+          console.error('Failed to render mermaid for export', err);
+        }
+      }
+
+      // Process PlantUML diagrams
+      const plantUmlBlocks = tempDiv.querySelectorAll('code.language-plantuml');
+      if (plantUmlBlocks.length > 0) {
+        const { default: plantumlEncoder } = await import('plantuml-encoder');
+        for (let i = 0; i < plantUmlBlocks.length; i++) {
+          const block = plantUmlBlocks[i];
+          const code = block.textContent || '';
+          try {
+            const encoded = plantumlEncoder.encode(code);
+            const plantumlUrl = `https://www.plantuml.com/plantuml/svg/${encoded}`;
+            
+            const response = await fetch(plantumlUrl);
+            const svgContent = await response.text();
+            
+            const pngDataUrl = await this.svgToPng(svgContent);
+            
+            const img = document.createElement('img');
+            img.src = pngDataUrl;
+            img.style.maxWidth = '100%';
+
+            const pre = block.parentElement;
+            if (pre && pre.tagName === 'PRE') {
+              pre.parentNode?.replaceChild(img, pre);
+            }
+          } catch (err) {
+            console.error('Failed to render plantuml for export', err);
+          }
+        }
+      }
+
+      let metadataHtml = '';
+      if (metadata) {
+        metadataHtml += '<p><br/></p>';
+        if (metadata.created) {
+          metadataHtml += `<p>Created: ${metadata.created.toLocaleDateString()}</p>`;
+        }
+        if (metadata.updated) {
+          metadataHtml += `<p>Updated: ${metadata.updated.toLocaleDateString()}</p>`;
+        }
+      }
+
+      const finalHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            table { border-collapse: collapse; width: 100%; margin-bottom: 1em; border: 1px solid #000000; }
+            th, td { border: 1px solid #000000; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            img { max-width: 100%; height: auto; margin: 1em 0; }
+            body { font-family: 'Sarabun', 'Kanit', Arial, sans-serif; font-size: 14pt; color: #000000; }
+            h1, h2, h3, h4, h5, h6 { font-family: 'Sarabun', 'Kanit', Arial, sans-serif; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; color: #000000; border: none; text-decoration: none; }
+            h1 { font-size: 24pt; text-align: left; }
+            h2 { font-size: 20pt; }
+            h3 { font-size: 16pt; text-decoration: underline; }
+            p { margin-bottom: 1em; line-height: 1.5; color: #000000; }
+            ul, ol { margin-bottom: 1em; }
+            li { margin-bottom: 0.5em; }
+            pre { background-color: #f5f5f5; padding: 1em; border: 1px solid #cccccc; border-radius: 4px; }
+            code { font-family: 'Courier New', Courier, monospace; background-color: #f5f5f5; padding: 2px 4px; border-radius: 2px; }
+            blockquote { border-left: 4px solid #cccccc; padding-left: 1em; margin-left: 0; color: #666666; font-style: italic; }
+          </style>
+        </head>
+        <body>
+          ${tempDiv.innerHTML}
+          ${metadataHtml}
+        </body>
+        </html>
+      `;
+
+      let docxBlob: Blob | null = null;
+
+      try {
+        // Try to load the Adasoft template
+        const response = await fetch('/adasoft-template.docx');
+        if (!response.ok) throw new Error(`Template not found: ${response.statusText}`);
+        
+        const templateBuffer = await response.arrayBuffer();
+        const PizZip = (await import('pizzip')).default;
+        const zip = new PizZip(templateBuffer);
+        
+        // 0. Modify styles.xml to force black color and no borders on headings
+        let stylesXml = zip.file('word/styles.xml').asText();
+        if (stylesXml) {
+          // Replace color for any heading to black
+          stylesXml = stylesXml.replace(/(<w:style[^>]*w:type="paragraph"[^>]*>[\s\S]*?<w:name w:val="heading [1-6]"[\s\S]*?)<w:color w:val="[^"]+"\/>/g, '$1<w:color w:val="000000"/>');
+          // Remove pBdr (borders) for any heading
+          stylesXml = stylesXml.replace(/(<w:style[^>]*w:type="paragraph"[^>]*>[\s\S]*?<w:name w:val="heading [1-6]"[\s\S]*?)<w:pBdr>[\s\S]*?<\/w:pBdr>/g, '$1');
+          // Force left alignment instead of center for any heading
+          stylesXml = stylesXml.replace(/(<w:style[^>]*w:type="paragraph"[^>]*>[\s\S]*?<w:name w:val="heading [1-6]"[\s\S]*?)<w:jc w:val="center"\/>/g, '$1<w:jc w:val="left"/>');
+          zip.file('word/styles.xml', stylesXml);
+        }
+        
+        // 1. Add HTML file
+        zip.file('word/document.html', finalHtml);
+        
+        // 2. Update .rels
+        let relsXml = zip.file('word/_rels/document.xml.rels').asText();
+        if (!relsXml.includes('htmlChunk')) {
+          relsXml = relsXml.replace('</Relationships>', '  <Relationship Id="htmlChunk" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="document.html"/>\n</Relationships>');
+          zip.file('word/_rels/document.xml.rels', relsXml);
+        }
+        
+        // 3. Update document.xml
+        let docXml = zip.file('word/document.xml').asText();
+        const sectPrMatch = docXml.match(/<w:sectPr[^>]*>.*?<\/w:sectPr>/);
+        const sectPr = sectPrMatch ? sectPrMatch[0] : '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr>';
+        docXml = docXml.replace(/<w:body>.*<\/w:body>/, `<w:body><w:altChunk r:id="htmlChunk"/>${sectPr}</w:body>`);
+        zip.file('word/document.xml', docXml);
+        
+        // 4. Update Content_Types
+        let contentTypes = zip.file('[Content_Types].xml').asText();
+        if (!contentTypes.includes('text/html')) {
+          contentTypes = contentTypes.replace('</Types>', '  <Default Extension="html" ContentType="text/html"/>\n</Types>');
+          zip.file('[Content_Types].xml', contentTypes);
+        }
+        
+        // Generate blob
+        docxBlob = zip.generate({
+          type: 'blob',
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
+        console.log('Successfully generated DOCX from adasoft-template.docx');
+      } catch (templateError) {
+        console.warn('Failed to use adasoft-template.docx, falling back to html-docx-js-typescript', templateError);
+        const { asBlob } = await import('html-docx-js-typescript');
+        docxBlob = await asBlob(finalHtml) as Blob;
+      }
       
-      // Add the document content
-      docxZip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-</Types>`);
+      if (!docxBlob) throw new Error('Failed to generate DOCX blob');
       
-      docxZip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`);
-      
-      docxZip.file("word/_rels/document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-</Relationships>`);
-      
-      // Parse HTML and create DOCX content with formatting
-      const docxContent = this.htmlToDocx(html, title, metadata);
-      
-      docxZip.file("word/document.xml", docxContent);
-      
-      // Generate the DOCX file
-      const docxBlob = docxZip.generate({type: 'blob'});
-      
-      // Create download link
-      const url = URL.createObjectURL(docxBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename.endsWith('.docx') ? filename : `${filename}.docx`;
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      const { saveAs } = await import('file-saver');
+      saveAs(docxBlob, filename.endsWith('.docx') ? filename : `${filename}.docx`);
       
     } catch (error) {
       console.error('Failed to export DOCX:', error);
       throw new Error('Failed to export DOCX');
     }
+  }
+
+  // Helper method to convert SVG to PNG data URL
+  private static svgToPng(svgString: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      let processedSvg = svgString;
+      if (!processedSvg.includes('xmlns=')) {
+        processedSvg = processedSvg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      
+      // Some SVGs don't have width and height, causing canvas to be 0x0
+      const widthMatch = processedSvg.match(/width="([^"]+)"/);
+      const heightMatch = processedSvg.match(/height="([^"]+)"/);
+      
+      const svgBase64 = btoa(unescape(encodeURIComponent(processedSvg)));
+      img.src = 'data:image/svg+xml;base64,' + svgBase64;
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Fallback dimensions if img.width/img.height are 0
+        canvas.width = img.width || (widthMatch ? parseInt(widthMatch[1]) : 800) || 800;
+        canvas.height = img.height || (heightMatch ? parseInt(heightMatch[1]) : 600) || 600;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error('Canvas context not available'));
+        }
+      };
+      
+      img.onerror = (e) => reject(e);
+    });
   }
 
   // Export as Excel
@@ -266,29 +425,44 @@ export class ExportService {
   // Helper function to encode Thai text for PDF
   private static encodeThaiText(text: string): string {
     try {
-      // Validate input
-      if (!text || typeof text !== 'string') {
-        console.warn('Invalid text input for Thai encoding:', text);
-        return text || '';
-      }
-      
-      // Simple encoding for Thai text with null checking
+      if (!text || typeof text !== 'string') return text || '';
       return text.replace(/[\u0E00-\u0E7F]/g, (char) => {
         try {
           const charCode = char?.charCodeAt?.(0);
-          if (charCode && typeof charCode === 'number') {
-            return String.fromCharCode(charCode);
-          }
+          if (charCode && typeof charCode === 'number') return String.fromCharCode(charCode);
           return char;
-        } catch (charError) {
-          console.warn('Character encoding failed:', charError);
-          return char;
-        }
+        } catch (charError) { return char; }
       });
-    } catch (error) {
-      console.warn('Thai text encoding failed:', error);
-      return text || '';
-    }
+    } catch (error) { return text || ''; }
+  }
+
+  // Helper function to parse HTML to text for PDF
+  private static parseHTMLToText(html: string): string[] {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    const lines: string[] = [];
+    const processNode = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent?.trim();
+        if (text) lines.push(text);
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as Element;
+        switch (element.tagName.toLowerCase()) {
+          case 'h1': lines.push(`# ${element.textContent?.trim() || ''}`); break;
+          case 'h2': lines.push(`## ${element.textContent?.trim() || ''}`); break;
+          case 'h3': lines.push(`### ${element.textContent?.trim() || ''}`); break;
+          case 'p':
+            lines.push(element.textContent?.trim() || '');
+            lines.push('');
+            break;
+          case 'br': lines.push(''); break;
+          case 'li': lines.push(`• ${element.textContent?.trim() || ''}`); break;
+          default: Array.from(element.childNodes).forEach(processNode); break;
+        }
+      }
+    };
+    Array.from(tempDiv.childNodes).forEach(processNode);
+    return lines.filter(line => line !== undefined);
   }
 
   // Import Markdown file
@@ -317,362 +491,5 @@ export class ExportService {
       
       input.click();
     });
-  }
-
-  // Helper function to parse HTML to text for PDF
-  private static parseHTMLToText(html: string): string[] {
-    // Create a temporary div to parse HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    
-    // Extract text content while preserving some structure
-    const lines: string[] = [];
-    
-    const processNode = (node: Node) => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        const text = node.textContent?.trim();
-        if (text) {
-          lines.push(text);
-        }
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        const element = node as Element;
-        
-        // Handle different HTML elements
-        switch (element.tagName.toLowerCase()) {
-          case 'h1':
-            lines.push(`# ${element.textContent?.trim() || ''}`);
-            break;
-          case 'h2':
-            lines.push(`## ${element.textContent?.trim() || ''}`);
-            break;
-          case 'h3':
-            lines.push(`### ${element.textContent?.trim() || ''}`);
-            break;
-          case 'p':
-            lines.push(element.textContent?.trim() || '');
-            lines.push(''); // Add empty line after paragraph
-            break;
-          case 'br':
-            lines.push('');
-            break;
-          case 'li':
-            lines.push(`• ${element.textContent?.trim() || ''}`);
-            break;
-          default:
-            // For other elements, process children
-            Array.from(element.childNodes).forEach(processNode);
-            break;
-        }
-      }
-    };
-    
-    Array.from(tempDiv.childNodes).forEach(processNode);
-    
-    return lines.filter(line => line !== undefined);
-  }
-
-  // Helper function to convert HTML to DOCX XML format
-  private static htmlToDocx(html: string, title: string, metadata?: { created?: Date, updated?: Date }): string {
-    // Create a temporary element to parse HTML
-    const temp = document.createElement('div');
-    temp.innerHTML = html;
-    
-    // Start building the DOCX XML content
-    let content = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <w:body>
-    <!-- Title -->
-    <w:p>
-      <w:pPr>
-        <w:jc w:val="center"/>
-        <w:rPr>
-          <w:b/>
-          <w:sz w:val="48"/>
-        </w:rPr>
-      </w:pPr>
-      <w:r>
-        <w:rPr>
-          <w:b/>
-          <w:sz w:val="48"/>
-        </w:rPr>
-        <w:t>${this.encodeXml(title)}</w:t>
-      </w:r>
-    </w:p>
-    <w:p>
-      <w:r>
-        <w:br/>
-      </w:r>
-    </w:p>`;
-
-    // Process each child node
-    Array.from(temp.childNodes).forEach(node => {
-      content += this.processNodeForDocx(node);
-    });
-
-    // Add metadata if provided
-    if (metadata) {
-      content += `
-    <w:p>
-      <w:r>
-        <w:br/>
-      </w:r>
-    </w:p>`;
-        
-        if (metadata.created) {
-          content += `
-    <w:p>
-      <w:r>
-        <w:t>Created: ${metadata.created.toLocaleDateString()}</w:t>
-      </w:r>
-    </w:p>`;
-        }
-        
-        if (metadata.updated) {
-          content += `
-    <w:p>
-      <w:r>
-        <w:t>Updated: ${metadata.updated.toLocaleDateString()}</w:t>
-      </w:r>
-    </w:p>`;
-        }
-    }
-
-    // Close the document
-    content += `
-  </w:body>
-</w:document>`;
-    
-    return content;
-  }
-
-  // Process individual HTML nodes for DOCX conversion
-  private static processNodeForDocx(node: Node): string {
-    let content = '';
-    
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent?.trim();
-      if (text) {
-        content += `
-    <w:p>
-      <w:r>
-        <w:t>${this.encodeXml(text)}</w:t>
-      </w:r>
-    </w:p>`;
-      }
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      const element = node as Element;
-      const tagName = element.tagName.toLowerCase();
-      
-      switch (tagName) {
-        case 'h1':
-          content += `
-    <w:p>
-      <w:pPr>
-        <w:rPr>
-          <w:b/>
-          <w:sz w:val="48"/>
-        </w:rPr>
-      </w:pPr>
-      <w:r>
-        <w:rPr>
-          <w:b/>
-          <w:sz w:val="48"/>
-        </w:rPr>
-        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
-      </w:r>
-    </w:p>`;
-          break;
-          
-        case 'h2':
-          content += `
-    <w:p>
-      <w:pPr>
-        <w:rPr>
-          <w:b/>
-          <w:sz w:val="36"/>
-        </w:rPr>
-      </w:pPr>
-      <w:r>
-        <w:rPr>
-          <w:b/>
-          <w:sz w:val="36"/>
-        </w:rPr>
-        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
-      </w:r>
-    </w:p>`;
-          break;
-          
-        case 'h3':
-          content += `
-    <w:p>
-      <w:pPr>
-        <w:rPr>
-          <w:b/>
-          <w:sz w:val="28"/>
-        </w:rPr>
-      </w:pPr>
-      <w:r>
-        <w:rPr>
-          <w:b/>
-          <w:sz w:val="28"/>
-        </w:rPr>
-        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
-      </w:r>
-    </w:p>`;
-          break;
-          
-        case 'p': {
-          const text = element.textContent?.trim() || '';
-          if (text) {
-            content += `
-    <w:p>
-      <w:r>
-        <w:t>${this.encodeXml(text)}</w:t>
-      </w:r>
-    </w:p>`;
-          }
-          break;
-        }
-          
-        case 'br':
-          content += `
-    <w:p>
-      <w:r>
-        <w:br/>
-      </w:r>
-    </w:p>`;
-          break;
-          
-        case 'strong':
-        case 'b':
-          content += `
-    <w:p>
-      <w:r>
-        <w:rPr>
-          <w:b/>
-        </w:rPr>
-        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
-      </w:r>
-    </w:p>`;
-          break;
-          
-        case 'em':
-        case 'i':
-          content += `
-    <w:p>
-      <w:r>
-        <w:rPr>
-          <w:i/>
-        </w:rPr>
-        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
-      </w:r>
-    </w:p>`;
-          break;
-          
-        case 'ul':
-          Array.from(element.children).forEach(li => {
-            if (li.tagName.toLowerCase() === 'li') {
-              content += `
-    <w:p>
-      <w:pPr>
-        <w:ind w:left="720"/>
-      </w:pPr>
-      <w:r>
-        <w:t>• ${this.encodeXml(li.textContent?.trim() || '')}</w:t>
-      </w:r>
-    </w:p>`;
-            }
-          });
-          break;
-          
-        case 'ol':
-          Array.from(element.children).forEach((li, index) => {
-            if (li.tagName.toLowerCase() === 'li') {
-              content += `
-    <w:p>
-      <w:pPr>
-        <w:ind w:left="720"/>
-      </w:pPr>
-      <w:r>
-        <w:t>${index + 1}. ${this.encodeXml(li.textContent?.trim() || '')}</w:t>
-      </w:r>
-    </w:p>`;
-            }
-          });
-          break;
-          
-        case 'code':
-          content += `
-    <w:p>
-      <w:r>
-        <w:rPr>
-          <w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>
-        </w:rPr>
-        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
-      </w:r>
-    </w:p>`;
-          break;
-          
-        case 'pre':
-          content += `
-    <w:p>
-      <w:pPr>
-        <w:pStyle w:val="PreformattedText"/>
-      </w:pPr>
-      <w:r>
-        <w:rPr>
-          <w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>
-        </w:rPr>
-        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
-      </w:r>
-    </w:p>`;
-          break;
-          
-        case 'blockquote':
-          content += `
-    <w:p>
-      <w:pPr>
-        <w:ind w:left="720"/>
-      </w:pPr>
-      <w:r>
-        <w:t>${this.encodeXml(element.textContent?.trim() || '')}</w:t>
-      </w:r>
-    </w:p>`;
-          break;
-          
-        default:
-          // For other elements, process children
-          Array.from(element.childNodes).forEach(child => {
-            content += this.processNodeForDocx(child);
-          });
-          break;
-      }
-    }
-    
-    return content;
-  }
-
-  // Helper function to convert HTML to plain text
-  private static htmlToText(html: string): string {
-    // Create a temporary element to parse HTML
-    const temp = document.createElement('div');
-    temp.innerHTML = html;
-    
-    // Extract text content
-    return temp.textContent || temp.innerText || '';
-  }
-
-  // Helper function to encode text for XML
-  private static encodeXml(text: string): string {
-    if (!text) return '';
-    
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;')
-      .replace(/\n/g, '</w:t></w:r><w:r><w:br/><w:t>')
-      .replace(/\t/g, '    '); // Replace tabs with 4 spaces
   }
 }

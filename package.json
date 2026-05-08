@@ -8,13 +8,14 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "check": "tsc -b --noEmit",
-    "preinstall": "node preinstall.js"
+    "check": "tsc -b --noEmit"
   },
   "dependencies": {
     "clsx": "^2.1.1",
     "dexie": "^4.0.8",
     "docxtemplater": "^3.66.3",
+    "file-saver": "^2.0.5",
+    "html-docx-js-typescript": "^0.1.5",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",
     "lucide-react": "^0.511.0",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@types/file-saver": "^2.0.7",
     "@types/marked": "^6.0.0",
     "@types/node": "^22.15.30",
     "@types/react": "^18.3.12",

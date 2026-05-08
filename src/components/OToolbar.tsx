@@ -256,7 +256,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
   };
 
   const handlePrint = async () => {
-    if (!currentDocument) {
+    if ((content || '').trim().length === 0) {
       alert('ไม่มีเนื้อหาสำหรับพิมพ์');
       return;
     }
@@ -265,7 +265,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
       setIsExporting('print');
       
       // Convert markdown to HTML
-      const htmlContent = await marked(currentDocument.content);
+      const htmlContent = await marked(content || '');
       
       // Add print-specific class to body
       document.body.classList.add('printing');
@@ -407,7 +407,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>พิมพ์เอกสาร - ${currentDocument.title}</title>
+          <title>พิมพ์เอกสาร - ${currentDocument?.title || 'Untitled'}</title>
           <style>
             ${printCSS}
           </style>
@@ -443,17 +443,18 @@ const OToolbar: React.FC<OToolbarProps> = ({
 
 
   const handleExportDOCX = async () => {
-    if (!currentDocument) {
+    if ((content || '').trim().length === 0) {
       alert('ไม่มีเนื้อหาสำหรับส่งออก DOCX');
       return;
     }
 
     try {
       setIsExporting('docx');
+      const docTitle = currentDocument?.title || 'Untitled';
       await ExportService.exportAsDOCX(
-        currentDocument.content,
-        currentDocument.title,
-        `${currentDocument.title}.docx`
+        content || '',
+        docTitle,
+        `${docTitle}.docx`
       );
     } catch (error) {
       console.error('Failed to export DOCX:', error);
@@ -479,7 +480,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
 
 
   const handleExportDiagramSVG = async () => {
-    if (!currentDocument) {
+    if ((content || '').trim().length === 0) {
       alert('ไม่มีเนื้อหาสำหรับส่งออก');
       return;
     }
@@ -495,18 +496,18 @@ const OToolbar: React.FC<OToolbarProps> = ({
         
         await DiagramExportService.exportMermaidDiagram({
           format: 'svg',
-          filename: `${currentDocument.title || 'mermaid-diagram'}.svg`
+          filename: `${currentDocument?.title || 'mermaid-diagram'}.svg`
         });
       } else if (currentMode === 'plantuml') {
-        const content = currentDocument.content || '';
-        if (!DiagramExportService.validateDiagramForExport('plantuml', content)) {
+        const sourceContent = content || '';
+        if (!DiagramExportService.validateDiagramForExport('plantuml', sourceContent)) {
           alert('ไม่มีเนื้อหา PlantUML ที่จะ export');
           return;
         }
         
-        await DiagramExportService.exportPlantUMLDiagram(content, {
+        await DiagramExportService.exportPlantUMLDiagram(sourceContent, {
           format: 'svg',
-          filename: `${currentDocument.title || 'plantuml-diagram'}.svg`
+          filename: `${currentDocument?.title || 'plantuml-diagram'}.svg`
         });
       }
     } catch (error) {
@@ -592,14 +593,14 @@ const OToolbar: React.FC<OToolbarProps> = ({
           onClick={handleSave}
           icon={<Save className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Save Document (Ctrl+S)"
-          disabled={!currentDocument}
+          disabled={false}
           loading={isExporting === 'save'}
         />
         <ToolbarButton
           onClick={handleAdjustSyntax}
           icon={<Wand2 className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="ปรับ Markdown Syntax (Ctrl+M)"
-          disabled={!currentDocument}
+          disabled={false}
         />
       </div>
 
@@ -692,28 +693,28 @@ const OToolbar: React.FC<OToolbarProps> = ({
           onClick={handleBold}
           icon={<Bold className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Bold (Ctrl+B)"
-          disabled={!currentDocument}
+          disabled={false}
         />
         
         <ToolbarButton
           onClick={handleItalic}
           icon={<Italic className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Italic (Ctrl+I)"
-          disabled={!currentDocument}
+          disabled={false}
         />
         
         <ToolbarButton
           onClick={handleUnderline}
           icon={<Underline className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Underline (Ctrl+U)"
-          disabled={!currentDocument}
+          disabled={false}
         />
         
         <ToolbarButton
           onClick={handleStrikethrough}
           icon={<Strikethrough className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Strikethrough"
-          disabled={!currentDocument}
+          disabled={false}
         />
       </div>
 
@@ -726,21 +727,21 @@ const OToolbar: React.FC<OToolbarProps> = ({
           onClick={() => handleHeading(1)}
           icon={<Heading1 className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Heading 1"
-          disabled={!currentDocument}
+          disabled={false}
         />
         
         <ToolbarButton
           onClick={() => handleHeading(2)}
           icon={<Heading2 className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Heading 2"
-          disabled={!currentDocument}
+          disabled={false}
         />
         
         <ToolbarButton
           onClick={() => handleHeading(3)}
           icon={<Heading3 className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Heading 3"
-          disabled={!currentDocument}
+          disabled={false}
         />
       </div>
 
@@ -753,28 +754,28 @@ const OToolbar: React.FC<OToolbarProps> = ({
           onClick={() => handleList(false)}
           icon={<List className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Unordered List"
-          disabled={!currentDocument}
+          disabled={false}
         />
         
         <ToolbarButton
           onClick={() => handleList(true)}
           icon={<ListOrdered className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Ordered List"
-          disabled={!currentDocument}
+          disabled={false}
         />
         
         <ToolbarButton
           onClick={handleCode}
           icon={<Code className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Inline Code"
-          disabled={!currentDocument}
+          disabled={false}
         />
         
         <ToolbarButton
           onClick={handleCodeBlock}
           icon={<Code2 className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
           title="Code Block"
-          disabled={!currentDocument}
+          disabled={false}
         />
       </div>
 
@@ -798,7 +799,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
               onClick={handlePrint}
               icon={<Printer className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
               title="พิมพ์เอกสาร"
-              disabled={!currentDocument}
+              disabled={(content || '').trim().length === 0}
               loading={isExporting === 'print'}
             />
             
@@ -806,7 +807,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
               onClick={handleExportDOCX}
               icon={<FileTextIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
               title="ส่งออกเป็น DOCX"
-              disabled={!currentDocument}
+              disabled={(content || '').trim().length === 0}
               loading={isExporting === 'docx'}
             />
             
@@ -827,7 +828,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
               onClick={handleExportDiagramSVG}
               icon={<FileImage className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
               title={`ส่งออก ${currentMode === 'mermaid' ? 'Mermaid' : 'PlantUML'} diagram เป็น SVG`}
-              disabled={!currentDocument}
+              disabled={(content || '').trim().length === 0}
               loading={isExporting === 'diagram-svg'}
             />
           </>
