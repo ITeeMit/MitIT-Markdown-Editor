@@ -1,0 +1,45 @@
+{
+  "name": "MitIT Markdown Editor",
+  "short_name": "MitIT MarkdownEditor",
+  "description": "A powerful markdown editor with PDF export capabilities",
+  "theme_color": "#1f2937",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "markdown2pdf.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "markdown2pdf.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "New Document",
+      "short_name": "New",
+      "description": "Create a new markdown document",
+      "url": "/?action=new",
+      "icons": [
+        {
+          "src": "markdown2pdf.png",
+          "sizes": "any"
+        }
+      ]
+    }
+  ]
+}
