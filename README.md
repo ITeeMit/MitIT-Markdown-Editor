@@ -1,257 +1,189 @@
-# MitIT Multi-Mode Editor
+# MitIT Markdown Editor
 
 <div align="center">
-  <img src="public/markdown2pdf.png" alt="MitIT Multi-Mode Editor" width="200" height="200">
-  
-  **A powerful multi-mode editor with Markdown, Mermaid, and PlantUML support**
-  
+  <img src="public/markdown2pdf.png" alt="MitIT Markdown Editor" width="200" height="200">
+
+  **Multi-mode editor with Adasoft-branded DOCX/PDF export**
+
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![React](https://img.shields.io/badge/React-18.x-blue.svg)](https://reactjs.org/)
-  [![Vite](https://img.shields.io/badge/Vite-5.x-646CFF.svg)](https://vitejs.dev/)
+  [![Vite](https://img.shields.io/badge/Vite-6.x-646CFF.svg)](https://vitejs.dev/)
 </div>
 
-## 🚀 Features
+Markdown, Mermaid, and PlantUML editor with live preview, project organization, and professional export using the **Adasoft Word template** (`public/adasoft-template.docx`).
 
-### 📝 Multi-Mode Editor
-- **Markdown Mode**: Full-featured markdown editing with live preview
-- **Mermaid Mode**: Create flowcharts, sequence diagrams, and more
-- **PlantUML Mode**: Generate UML diagrams with PlantUML syntax
-- **Find & Replace**: 
-  - 🔍 **Ctrl+F**: Quick find text in editor
-  - 🔄 **Ctrl+H**: Find and replace functionality
-  - Case-sensitive search option
-  - Replace single or all occurrences
-  - Navigate through matches with keyboard shortcuts
+## Features
 
-### 📤 Export Options
-- **Markdown Mode**: 
-  - 🖨️ Print/PDF export with Thai font support
-  - 📄 DOCX export for Microsoft Word compatibility
-  - 📊 Excel export for spreadsheet format
-- **Mermaid/PlantUML Modes**: 
-  - 🖼️ SVG export for high-quality vector graphics
+### Multi-mode editing
 
-### 🌏 Thai Language Support
-- **Thai Fonts**: Proper rendering with Sarabun and Kanit fonts
-- **Export Compatibility**: Thai text support in all export formats
-- **Print Quality**: High-quality Thai text in PDF exports
+| Mode | Description |
+|------|-------------|
+| **Markdown** | GFM markdown with live preview |
+| **Mermaid** | Flowcharts, sequence diagrams, Gantt charts |
+| **PlantUML** | UML diagrams via Kroki |
 
-### 💾 Document Management
-- **Local Storage**: Documents saved using IndexedDB
-- **File Operations**: Create, rename, and delete documents
-- **File Upload**: Drag & drop markdown file support
-- **Auto-save**: Automatic saving of your work
+**Editor shortcuts:** `Ctrl+F` find · `Ctrl+H` find & replace · case-sensitive search
 
-### 🎨 User Experience
-- **Real-time Preview**: Live preview for all editing modes
-- **Find & Replace**: Powerful search with Ctrl+F and Ctrl+H shortcuts
-- **Theme Support**: Light and dark theme toggle
-- **Responsive Design**: Works seamlessly on desktop and mobile
-- **Modern UI**: Clean and intuitive user interface
-- **⚡ Fast Performance**: Built with Vite for lightning-fast development
+### Project organization
 
-## 🛠️ Tech Stack
+- Sidebar projects with colors, drag-and-drop, and nested documents
+- IndexedDB storage (offline-first)
+- Import `.md` files · auto-save · rename / delete
 
-- **Frontend Framework**: React 18.x
-- **Build Tool**: Vite 5.x
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand
-- **Markdown Processing**: Custom markdown parser
-- **Diagram Rendering**: 
-  - Mermaid for flowcharts and diagrams
-  - PlantUML for UML diagrams
-- **Data Storage**: IndexedDB for local document storage
-- **Export Capabilities**: 
-  - Browser-native PDF/Print export
-  - DOCX generation
-  - Excel export
-  - SVG export for diagrams
-- **Font Support**: Thai fonts integration (Sarabun, Kanit)
-- **Icons**: Lucide React
-- **Development**: TypeScript, ESLint
+### Export
 
-## 📦 Installation & Setup
+| Format | Markdown mode | Diagram modes |
+|--------|---------------|---------------|
+| **PDF** | Adasoft template (primary) | — |
+| **DOCX** | Adasoft template | — |
+| **Markdown** | `.md` download | — |
+| **Excel** | Multi-document workbook | — |
+| **SVG** | — | Mermaid / PlantUML |
 
-### Prerequisites
+#### Adasoft DOCX / PDF pipeline
 
-- Node.js 18+ 
-- npm or pnpm
+Exports use `src/utils/adaExportPipeline.ts` and `public/adasoft-template.docx`:
 
-### Clone the Repository
+1. Markdown → HTML (headings, tables, code blocks, diagrams)
+2. **Mermaid / PlantUML** → PNG via [mermaid.ink](https://mermaid.ink) / [Kroki](https://kroki.io), placed **above** the source code in a gray box
+3. HTML injected into the template via Word **altChunk**
+4. Template header rebuilt (logo + contact, 2 lines) and heading sizes patched (H3 = 12pt baseline)
+
+**PDF conversion order:**
+
+1. Browser builds template DOCX → `POST /api/export/pdf-from-docx` → Word COM (flatten altChunk, then PDF)
+2. Fallback: `POST /api/export/pdf` → Python `md_to_pdf.py` (MD → DOCX → PDF)
+3. Fallback: browser html2canvas + jsPDF with template shell
+
+**DOCX:** data-URI diagram images (Word displays them correctly in altChunk HTML).
+
+**PDF:** same data-URI HTML; server flattens altChunk to native Word content before PDF export.
+
+### Thai language support
+
+- TH Sarabun New / Sarabun in exports
+- Thai text in PDF, DOCX, and print output
+
+## Tech stack
+
+- **UI:** React 18, Tailwind CSS, Zustand, Lucide
+- **Build:** Vite 6, TypeScript
+- **Markdown:** marked (GFM)
+- **Diagrams:** Mermaid, PlantUML encoder + external render APIs
+- **Export:** PizZip, html-docx-js-typescript, html2canvas, jsPDF
+- **Storage:** Dexie (IndexedDB)
+- **PWA:** vite-plugin-pwa
+
+## Prerequisites
+
+- **Node.js 18+**
+- **PDF export (recommended, Windows):**
+  - Microsoft Word (for COM automation)
+  - Python 3 with `pywin32`, `python-docx`, `requests`, `beautifulsoup4`, `markdown`
+  - `md_to_pdf.py` at `../../.agent/scripts/md_to_pdf.py` relative to this project (or adjust path in `server/adaPdfExport.ts`)
+
+Without Word/Python, PDF falls back to browser rendering (layout may differ).
+
+## Installation
 
 ```bash
-git clone <repository-url>
-cd mitit-markdown-editor
-```
-
-### Install Dependencies
-
-```bash
-# Using npm
+git clone https://github.com/ITeeMit/MitIT-Markdown-Editor.git
+cd MitIT-Markdown-Editor
 npm install
-
-# Using pnpm
-pnpm install
-```
-
-### Run Development Server
-
-```bash
-# Using npm
 npm run dev
-
-# Using pnpm
-pnpm dev
 ```
 
-The application will be available at `http://localhost:5173`
+Open **http://localhost:5173**
 
-### Build for Production
+### Production build
 
 ```bash
-# Using npm
 npm run build
-
-# Using pnpm
-pnpm build
+npm run preview
 ```
 
-## 🎯 Usage
+## Usage
 
-### Getting Started
-1. **Create/Open Documents**: Use the document manager to create new files or open existing ones
-2. **Choose Your Mode**: Select between Markdown, Mermaid, or PlantUML editing modes
-3. **Real-time Editing**: Write your content with live preview in the right panel
+1. Create or open a document from the sidebar.
+2. Choose **Markdown**, **Mermaid**, or **PlantUML** mode.
+3. Edit with live preview.
+4. Export from the toolbar: **PDF**, **DOCX**, **MD**, **Excel**, or **SVG** (diagram modes).
 
-### Find & Replace
-- **Ctrl+F**: Open Find dialog
-  - Search for text in the editor
-  - Navigate matches with **Enter** (next) or **Shift+Enter** (previous)
-  - Use arrow buttons to move between results
-  - Toggle case-sensitive search
-  - Press **Esc** to close
-  
-- **Ctrl+H**: Open Find & Replace dialog
-  - All Find features included
-  - **Replace** button: Replace current match
-  - **Replace All** button: Replace all occurrences at once
-  - Auto-scroll to highlighted matches
-  - Clear highlights after replace all
+### Diagram blocks in Markdown
 
-### Markdown Mode
-- Write markdown content with syntax highlighting
-- Export options: Print/PDF, DOCX, Excel
-- Full Thai language support in exports
+````markdown
+```mermaid
+sequenceDiagram
+    A->>B: Hello
+```
 
-### Mermaid Mode
-- Create flowcharts, sequence diagrams, gantt charts, and more
-- Export as SVG for high-quality vector graphics
-- Real-time diagram preview
+```plantuml
+@startuml
+Alice -> Bob: Hello
+@enduml
+```
+````
 
-### PlantUML Mode
-- Generate UML diagrams using PlantUML syntax
-- Export as SVG format
-- Support for class diagrams, sequence diagrams, and more
+Each block exports as **diagram image + source code** (same order as DOCX).
 
-### File Management
-- **Local Storage**: All documents are saved locally using IndexedDB
-- **File Operations**: Create, rename, and delete documents
-- **File Upload**: Drag and drop markdown files to import
-- **Theme Toggle**: Switch between light and dark themes
+## Development
 
-## 🐳 Docker Deployment
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Dev server + PDF export API middleware |
+| `npm run build` | Production build |
+| `npm run check` | TypeScript check |
+| `npm run lint` | ESLint |
 
-### Using Docker
+### Verify export pipeline
 
 ```bash
-# Build the Docker image
-docker build -t mitit-markdown-editor .
+node scripts/verify-heading-patch.mjs
+node scripts/verify-header-rebuild.mjs
+node scripts/verify-diagram-embed.mjs
+npm run check
+```
 
-# Run the container
+### Key paths
+
+```
+├── public/
+│   └── adasoft-template.docx    # Word template (required for DOCX/PDF)
+├── plugins/
+│   └── adaPdfExportPlugin.ts    # Vite middleware: /api/export/pdf*
+├── server/
+│   └── adaPdfExport.ts          # Word COM / Python PDF conversion
+├── scripts/                     # Template & export verification
+├── src/utils/
+│   ├── adaExportPipeline.ts     # Core MD → HTML → DOCX/PDF
+│   └── exportUtils.ts           # ExportService API
+└── docs/test/                   # Export test notes
+```
+
+### API (dev server only)
+
+| Endpoint | Method | Body | Description |
+|----------|--------|------|-------------|
+| `/api/export/pdf-from-docx` | POST | DOCX binary | Template DOCX → PDF |
+| `/api/export/pdf` | POST | JSON `{ content, title }` | Markdown → PDF (Python) |
+
+## Docker
+
+```bash
+docker build -t mitit-markdown-editor .
 docker run -d -p 8037:80 --name mitit-markdown-editor mitit-markdown-editor
 ```
 
-### Using Docker Compose
+Or: `docker-compose up -d` → **http://localhost:8037**
 
-```bash
-# Start the application
-docker-compose up -d
+> Docker serves the static PWA only. Server-side PDF (Word COM) requires the Windows dev setup above.
 
-# Stop the application
-docker-compose down
-```
+## License
 
-The application will be available at `http://localhost:8037`
-
-## 📁 Project Structure
-
-```
-mitit-multi-mode-editor/
-├── public/                 # Static assets
-│   ├── manifest.json      # PWA manifest
-│   └── markdown2pdf.png   # App icon
-├── src/                   # Source code
-│   ├── components/        # React components
-│   │   ├── OToolbar.tsx   # Main toolbar with mode switching
-│   │   ├── MarkdownEditor.tsx # Markdown editing component
-│   │   ├── MermaidEditor.tsx  # Mermaid diagram editor
-│   │   └── PlantUMLEditor.tsx # PlantUML diagram editor
-│   ├── hooks/            # Custom React hooks
-│   ├── stores/           # Zustand state management
-│   ├── utils/            # Utility functions
-│   │   ├── pdfExport.ts  # PDF export utilities
-│   │   ├── docxExport.ts # DOCX export utilities
-│   │   └── excelExport.ts # Excel export utilities
-│   ├── App.tsx           # Main App component
-│   └── main.tsx          # Application entry point
-├── docker/               # Docker configuration
-│   └── nginx.conf        # Nginx configuration
-├── Dockerfile            # Docker build instructions
-├── docker-compose.yml    # Docker Compose configuration
-├── package.json          # Dependencies and scripts
-├── tailwind.config.js    # Tailwind CSS configuration
-├── tsconfig.json         # TypeScript configuration
-└── vite.config.ts        # Vite configuration
-```
-
-## 🔧 Development
-
-### Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-- `npm run check` - Type checking
-
-### Code Standards
-
-- **TypeScript**: Strict type checking enabled
-- **ESLint**: Code linting and formatting
-- **Tailwind CSS**: Utility-first CSS framework
-- **Component Structure**: Small, focused components (<200 lines)
-- **File Naming**: PascalCase for components, camelCase for utilities
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built with ❤️ using React and Vite
-- Icons provided by [Lucide](https://lucide.dev/)
-- Styling powered by [Tailwind CSS](https://tailwindcss.com/)
+MIT — see [LICENSE](LICENSE).
 
 ---
 
 <div align="center">
-  Made with ❤️ by MitIT Team
+  Made with ❤️ by MitIT Team · Adasoft template export
 </div>
