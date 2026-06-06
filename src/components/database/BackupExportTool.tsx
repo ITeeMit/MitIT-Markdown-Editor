@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, FileText, Calendar, Filter, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { messageBox } from '@/utils/messageBox';
 import { DatabaseService } from '@/database';
 import { MarkdownDocument } from '@/types';
 
@@ -88,7 +89,7 @@ const BackupExportTool: React.FC<BackupExportToolProps> = () => {
 
   const handleExport = async () => {
     if (documentsToExport.length === 0) {
-      alert('ไม่มีเอกสารสำหรับส่งออก');
+      await messageBox.warning('ไม่มีเอกสารสำหรับส่งออก');
       return;
     }
 

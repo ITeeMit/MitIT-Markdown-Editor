@@ -28,6 +28,7 @@ import { DatabaseService } from '@/database';
 import { csvToMarkdownTable } from '@/utils/csvUtils';
 import { downloadProjectAsJson, downloadProjectAsMarkdownZip } from '@/utils/projectExport';
 import ProjectColorPicker from '@/components/ProjectColorPicker';
+import { messageBox } from '@/utils/messageBox';
 
 const DOC_DRAG_TYPE = 'application/x-mitit-doc-id';
 type DropTargetId = string | 'uncategorized';
@@ -190,7 +191,7 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
       setSelectedDocId(null);
     } catch (error) {
       console.error('Failed to rename document:', error);
-      alert('Failed to rename document');
+      await messageBox.error('Failed to rename document');
     }
   };
 
@@ -209,7 +210,7 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
       setCreateInProjectId(undefined);
     } catch (error) {
       console.error('Failed to create document:', error);
-      alert('Failed to create document');
+      await messageBox.error('Failed to create document');
     }
   };
 
@@ -222,7 +223,7 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
       setIsCreatingProject(false);
     } catch (error) {
       console.error('Failed to create project:', error);
-      alert('Failed to create project');
+      await messageBox.error('Failed to create project');
     }
   };
 
@@ -232,11 +233,11 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
       await refreshLists();
     } catch (error) {
       console.error('Failed to update project color:', error);
-      alert('Failed to update project color');
+      await messageBox.error('Failed to update project color');
     }
   };
 
-  const handleExportProject = (project: Project, format: 'json' | 'zip') => {
+  const handleExportProject = async (project: Project, format: 'json' | 'zip') => {
     try {
       if (format === 'json') {
         downloadProjectAsJson(project, documents);
@@ -245,7 +246,7 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to export project:', error);
-      alert(error instanceof Error ? error.message : 'Failed to export project');
+      await messageBox.error(error instanceof Error ? error.message : 'Failed to export project');
     }
   };
 
@@ -294,30 +295,41 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
     e.dataTransfer.types.includes('Files');
 
   const handleDeleteDocument = async (docId: string) => {
-    if (confirm('Are you sure you want to delete this document?')) {
-      try {
-        await deleteDocument(docId);
-        setSelectedDocId(null);
-      } catch (error) {
-        console.error('Failed to delete document:', error);
-        alert('Failed to delete document');
-      }
+    const confirmed = await messageBox.confirm('ต้องการลบเอกสารนี้หรือไม่?', {
+      title: 'ลบเอกสาร',
+      type: 'warning',
+      confirmText: 'ลบ',
+      cancelText: 'ยกเลิก',
+    });
+    if (!confirmed) return;
+
+    try {
+      await deleteDocument(docId);
+      setSelectedDocId(null);
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+      await messageBox.error('Failed to delete document');
     }
   };
 
   const handleDeleteProject = async (project: Project) => {
-    if (
-      confirm(
-        `Delete project "${project.name}"? Documents will move to Uncategorized.`
-      )
-    ) {
-      try {
-        await deleteProject(project.id);
-        await refreshLists();
-      } catch (error) {
-        console.error('Failed to delete project:', error);
-        alert('Failed to delete project');
+    const confirmed = await messageBox.confirm(
+      `ลบโปรเจกต์ "${project.name}"?\nเอกสารจะย้ายไป Uncategorized`,
+      {
+        title: 'ลบโปรเจกต์',
+        type: 'warning',
+        confirmText: 'ลบ',
+        cancelText: 'ยกเลิก',
       }
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteProject(project.id);
+      await refreshLists();
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      await messageBox.error('Failed to delete project');
     }
   };
 
@@ -358,12 +370,12 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
             });
           } catch (error) {
             console.error('Failed to upload document:', error);
-            alert(`Failed to upload ${file.name}`);
+            void messageBox.error(`Failed to upload ${file.name}`);
           }
         };
         reader.readAsText(file);
       } else {
-        alert(`${file.name} is not a markdown file. Please upload .md files only.`);
+        void messageBox.warning(`${file.name} is not a markdown file. Please upload .md files only.`);
       }
     });
   };
@@ -670,9 +682,9 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
       <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="flex items-center gap-1.5 mb-3">
           <button
-            onClick={() => {
+            onClick={async () => {
               if (currentMode !== 'markdown') {
-                alert('กรุณาเปลี่ยนไปที่โหมด Markdown ก่อนนำเข้า CSV');
+                await messageBox.warning('กรุณาเปลี่ยนไปที่โหมด Markdown ก่อนนำเข้า CSV');
                 return;
               }
               csvInputRef.current?.click();
@@ -713,27 +725,29 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
         ref={csvInputRef}
         type="file"
         accept=".csv,text/csv"
-        onChange={(e) => {
+        onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
           if (currentMode !== 'markdown') {
-            alert('กรุณาเปลี่ยนไปที่โหมด Markdown ก่อนนำเข้า CSV');
+            await messageBox.warning('กรุณาเปลี่ยนไปที่โหมด Markdown ก่อนนำเข้า CSV');
             e.currentTarget.value = '';
             return;
           }
           const reader = new FileReader();
           reader.onload = () => {
-            try {
-              const text = String(reader.result || '');
-              const table = csvToMarkdownTable(text, { title: file.name });
-              const prefix = content?.trim() ? '\n\n' : '';
-              setContent(`${content || ''}${prefix}${table}`);
-              alert('นำเข้า CSV สำเร็จ');
-            } catch {
-              alert('เกิดข้อผิดพลาดในการนำเข้า CSV');
-            } finally {
-              e.currentTarget.value = '';
-            }
+            void (async () => {
+              try {
+                const text = String(reader.result || '');
+                const table = csvToMarkdownTable(text, { title: file.name });
+                const prefix = content?.trim() ? '\n\n' : '';
+                setContent(`${content || ''}${prefix}${table}`);
+                await messageBox.success('นำเข้า CSV สำเร็จ');
+              } catch {
+                await messageBox.error('เกิดข้อผิดพลาดในการนำเข้า CSV');
+              } finally {
+                e.currentTarget.value = '';
+              }
+            })();
           };
           reader.readAsText(file);
         }}

@@ -24,13 +24,13 @@ import {
   Workflow,
   FileImage
 } from 'lucide-react';
-import { marked } from 'marked';
 import { ExportService } from '@/utils/exportUtils';
 import { useEditorStore, EditorMode } from '@/stores/editorStore';
 
 import { DiagramExportService } from '@/utils/diagramExport';
 import OThemeToggle from './OThemeToggle';
 import DatabaseManagementModal from './DatabaseManagementModal';
+import { messageBox } from '@/utils/messageBox';
 import '../styles/print.css';
 
 interface OToolbarProps {
@@ -222,7 +222,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
         await saveDocument();
       } catch (error) {
         console.error('Failed to save document:', error);
-        alert('Failed to save document');
+        await messageBox.error('Failed to save document');
       } finally {
         setIsExporting(null);
       }
@@ -249,7 +249,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
       ExportService.exportAsMarkdown(sourceContent, filename);
     } catch (error) {
       console.error('Failed to export markdown:', error);
-      alert('Failed to export markdown file');
+      await messageBox.error('Failed to export markdown file');
     } finally {
       setIsExporting(null);
     }
@@ -257,184 +257,25 @@ const OToolbar: React.FC<OToolbarProps> = ({
 
   const handlePrint = async () => {
     if ((content || '').trim().length === 0) {
-      alert('ไม่มีเนื้อหาสำหรับพิมพ์');
+      await messageBox.warning('ไม่มีเนื้อหาสำหรับพิมพ์');
       return;
     }
 
     try {
       setIsExporting('print');
-      
-      // Convert markdown to HTML
-      const htmlContent = await marked(content || '');
-      
-      // Add print-specific class to body
-      document.body.classList.add('printing');
-      
-      // Create a new window for printing with the content
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        alert('ไม่สามารถเปิดหน้าต่างพิมพ์ได้ กรุณาอนุญาตป๊อปอัพ');
-        document.body.classList.remove('printing');
-        return;
-      }
-
-      // Create print-specific CSS
-      const printCSS = `
-        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@300;400;500;600;700&display=swap');
-        
-        @media print {
-          @page {
-            size: A4;
-            margin: 2cm;
-          }
-          
-          body {
-            font-family: 'Sarabun', 'Noto Sans Thai', 'Kanit', 'Arial', sans-serif !important;
-            font-size: 13pt;
-            line-height: 1.8;
-            color: #000 !important;
-            background: white !important;
-            margin: 0;
-            padding: 0;
-          }
-          
-          .print-container {
-            max-width: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          
-          h1, h2, h3, h4, h5, h6 {
-            font-family: 'Kanit', 'Sarabun', sans-serif !important;
-            color: #1a1a1a !important;
-            page-break-after: avoid;
-            margin: 24px 0 16px 0;
-            line-height: 1.3;
-            font-weight: 600;
-          }
-          
-          h1 {
-            font-size: 24px !important;
-            border-bottom: 2px solid #333 !important;
-            padding-bottom: 8px;
-          }
-          
-          h2 {
-            font-size: 20px !important;
-            border-bottom: 1px solid #666 !important;
-            padding-bottom: 4px;
-          }
-          
-          h3 { font-size: 18px !important; }
-          h4 { font-size: 16px !important; }
-          h5, h6 { font-size: 14px !important; }
-          
-          p {
-            margin: 0.8em 0;
-            text-align: justify;
-            orphans: 3;
-            widows: 3;
-          }
-          
-          ul, ol {
-            margin: 12px 0 !important;
-            padding-left: 24px !important;
-          }
-          
-          li {
-            margin: 4px 0 !important;
-            page-break-inside: avoid;
-          }
-          
-          pre {
-            background: #f8f9fa !important;
-            border: 1px solid #e9ecef !important;
-            padding: 16px !important;
-            margin: 16px 0 !important;
-            font-family: 'Courier New', monospace !important;
-            font-size: 12px !important;
-            page-break-inside: avoid;
-            white-space: pre-wrap;
-          }
-          
-          code {
-            font-family: 'Courier New', monospace !important;
-            background: #f8f9fa !important;
-            padding: 2px 4px !important;
-            border-radius: 3px;
-          }
-          
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 16px 0 !important;
-            page-break-inside: avoid;
-          }
-          
-          th, td {
-            border: 1px solid #dee2e6 !important;
-            padding: 8px 12px !important;
-            text-align: left;
-          }
-          
-          th {
-            background: #f8f9fa !important;
-            font-weight: 600;
-          }
-          
-          blockquote {
-            border-left: 4px solid #007bff !important;
-            margin: 16px 0 !important;
-            padding: 8px 16px !important;
-            background: #f8f9fa !important;
-          }
+      const docTitle = currentDocument?.title || 'Untitled';
+      await ExportService.exportAsPDF(
+        content || '',
+        docTitle,
+        `${docTitle}.pdf`,
+        {
+          created: currentDocument?.createdAt,
+          updated: currentDocument?.updatedAt,
         }
-        
-        body {
-          font-family: 'Sarabun', 'Noto Sans Thai', 'Kanit', 'Arial', sans-serif;
-          font-size: 14px;
-          line-height: 1.6;
-          color: #333;
-          max-width: 800px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-      `;
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html lang="th">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>พิมพ์เอกสาร - ${currentDocument?.title || 'Untitled'}</title>
-          <style>
-            ${printCSS}
-          </style>
-        </head>
-        <body>
-          <div class="print-container">
-            ${htmlContent}
-          </div>
-        </body>
-        </html>
-      `);
-      
-      printWindow.document.close();
-      
-      // Wait for content to load then print
-      setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
-        document.body.classList.remove('printing');
-      }, 1000);
-      
-      console.log('เปิดหน้าต่างพิมพ์แล้ว');
+      );
     } catch (error) {
-      console.error('Print error:', error);
-      document.body.classList.remove('printing');
-      alert('เกิดข้อผิดพลาดในการพิมพ์');
+      console.error('Print/PDF error:', error);
+      await messageBox.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการพิมพ์');
     } finally {
       setIsExporting(null);
     }
@@ -444,7 +285,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
 
   const handleExportDOCX = async () => {
     if ((content || '').trim().length === 0) {
-      alert('ไม่มีเนื้อหาสำหรับส่งออก DOCX');
+      await messageBox.warning('ไม่มีเนื้อหาสำหรับส่งออก DOCX');
       return;
     }
 
@@ -454,11 +295,15 @@ const OToolbar: React.FC<OToolbarProps> = ({
       await ExportService.exportAsDOCX(
         content || '',
         docTitle,
-        `${docTitle}.docx`
+        `${docTitle}.docx`,
+        {
+          created: currentDocument?.createdAt,
+          updated: currentDocument?.updatedAt,
+        }
       );
     } catch (error) {
       console.error('Failed to export DOCX:', error);
-      alert('เกิดข้อผิดพลาดในการส่งออก DOCX');
+      await messageBox.error('เกิดข้อผิดพลาดในการส่งออก DOCX');
     } finally {
       setIsExporting(null);
     }
@@ -470,7 +315,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
       ExportService.exportAsExcel(documents, 'markdown-documents');
     } catch (error) {
       console.error('Failed to export Excel:', error);
-      alert('Failed to export Excel file');
+      await messageBox.error('Failed to export Excel file');
     } finally {
       setIsExporting(null);
     }
@@ -481,7 +326,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
 
   const handleExportDiagramSVG = async () => {
     if ((content || '').trim().length === 0) {
-      alert('ไม่มีเนื้อหาสำหรับส่งออก');
+      await messageBox.warning('ไม่มีเนื้อหาสำหรับส่งออก');
       return;
     }
 
@@ -490,7 +335,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
       
       if (currentMode === 'mermaid') {
         if (!DiagramExportService.validateDiagramForExport('mermaid')) {
-          alert('ไม่พบ Mermaid diagram ที่จะ export กรุณาตรวจสอบว่า diagram แสดงผลอย่างถูกต้อง');
+          await messageBox.warning('ไม่พบ Mermaid diagram ที่จะ export กรุณาตรวจสอบว่า diagram แสดงผลอย่างถูกต้อง');
           return;
         }
         
@@ -501,7 +346,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
       } else if (currentMode === 'plantuml') {
         const sourceContent = content || '';
         if (!DiagramExportService.validateDiagramForExport('plantuml', sourceContent)) {
-          alert('ไม่มีเนื้อหา PlantUML ที่จะ export');
+          await messageBox.warning('ไม่มีเนื้อหา PlantUML ที่จะ export');
           return;
         }
         
@@ -512,7 +357,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
       }
     } catch (error) {
       console.error('Failed to export diagram as SVG:', error);
-      alert(`เกิดข้อผิดพลาดในการส่งออก SVG: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      await messageBox.error(`เกิดข้อผิดพลาดในการส่งออก SVG: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsExporting(null);
     }
@@ -798,7 +643,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
             <ToolbarButton
               onClick={handlePrint}
               icon={<Printer className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
-              title="พิมพ์เอกสาร"
+              title="Export PDF"
               disabled={(content || '').trim().length === 0}
               loading={isExporting === 'print'}
             />

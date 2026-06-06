@@ -8,6 +8,8 @@ import OPreviewPanel from '@/components/OPreviewPanel';
 import ResizablePanel from '@/components/ResizablePanel';
 import CollapsibleSidebar from '@/components/CollapsibleSidebar';
 import { Toaster } from '@/components/ui/Toaster';
+import MessageBox from '@/components/ui/MessageBox';
+import { messageBox } from '@/utils/messageBox';
 import { Menu, X } from 'lucide-react';
 
 const Home: React.FC = () => {
@@ -108,7 +110,7 @@ Happy writing! 🚀`,
       // setCurrentDocument(welcomeDoc);
     } catch (error) {
       console.error('Failed to create welcome document:', error);
-      alert('Failed to create welcome document');
+      await messageBox.error('Failed to create welcome document');
     }
   };
 
@@ -361,6 +363,7 @@ Happy writing! 🚀`,
         
         {/* Toast Notifications */}
         <Toaster />
+        <MessageBox />
       </div>
     </ThemeProvider>
   );
