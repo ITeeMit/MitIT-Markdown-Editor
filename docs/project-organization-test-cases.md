@@ -45,7 +45,12 @@
 | T-15 | Refresh หน้า (F5) | Projects + docs ยังอยู่ | AC-08 |
 | T-16 | Doc เก่า (ไม่มี folderId) | แสดงใน Uncategorized | AC-08 |
 | T-17 | Rename, Delete doc | ทำงานเหมือนเดิม | AC-08 |
-| T-18 | CSV import, dark mode | ไม่พัง | — |
+| T-19 | ลาก doc ไปวางบน project อื่น | doc ย้าย project | Phase 3 |
+| T-20 | ลาก doc ไป Uncategorized | doc ไม่มี folderId | Phase 3 |
+| T-21 | สร้าง project เลือกสี | project แสดงสีที่เลือก | Phase 3 |
+| T-22 | คลิก Palette → เปลี่ยนสี | สีอัปเดตทันที | Phase 3 |
+| T-23 | Export project JSON | ดาวน์โหลดไฟล์ .json | Phase 3 |
+| T-24 | Export project ZIP | ได้ไฟล์ .md + _project.json | Phase 3 |
 
 ## Build Verification
 

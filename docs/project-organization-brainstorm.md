@@ -214,4 +214,4 @@
 |-------|--------|-------|
 | Phase 1 | Done | Project CRUD, folderId, sidebar tree |
 | Phase 2 | Done | Starred, Recent, Uncategorized |
-| Phase 3 | Pending | Drag-drop, export project, colors picker |
+| Phase 3 | Done | Drag-drop, color picker, export JSON/ZIP |

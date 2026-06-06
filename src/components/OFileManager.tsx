@@ -18,12 +18,19 @@ import {
   FolderOpen,
   Folder,
   MoveRight,
+  Download,
+  Palette,
 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
-import { MarkdownDocument, Project, RECENT_DOCUMENT_LIMIT } from '@/types';
+import { MarkdownDocument, Project, PROJECT_COLORS, RECENT_DOCUMENT_LIMIT } from '@/types';
 import { DatabaseService } from '@/database';
 import { csvToMarkdownTable } from '@/utils/csvUtils';
+import { downloadProjectAsJson, downloadProjectAsMarkdownZip } from '@/utils/projectExport';
+import ProjectColorPicker from '@/components/ProjectColorPicker';
+
+const DOC_DRAG_TYPE = 'application/x-mitit-doc-id';
+type DropTargetId = string | 'uncategorized';
 
 interface OFileManagerProps {
   className?: string;
@@ -85,6 +92,7 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
     showRecent,
     loadProjects,
     createProject,
+    updateProject,
     deleteProject,
     toggleStarredSection,
     toggleRecentSection,
@@ -101,7 +109,11 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
   const [createInProjectId, setCreateInProjectId] = useState<string | undefined>(undefined);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
-  const [isDragOver, setIsDragOver] = useState(false);
+  const [newProjectColor, setNewProjectColor] = useState<string>(PROJECT_COLORS[0]);
+  const [colorPickerProjectId, setColorPickerProjectId] = useState<string | null>(null);
+  const [draggingDocId, setDraggingDocId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<DropTargetId | null>(null);
+  const [isFileDragOver, setIsFileDragOver] = useState(false);
   const [renamingDocId, setRenamingDocId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState('');
   const [moveDocId, setMoveDocId] = useState<string | null>(null);
@@ -204,14 +216,82 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return;
     try {
-      await createProject(newProjectName.trim());
+      await createProject(newProjectName.trim(), newProjectColor);
       setNewProjectName('');
+      setNewProjectColor(PROJECT_COLORS[(projects.length + 1) % PROJECT_COLORS.length]);
       setIsCreatingProject(false);
     } catch (error) {
       console.error('Failed to create project:', error);
       alert('Failed to create project');
     }
   };
+
+  const handleProjectColorChange = async (projectId: string, color: string) => {
+    try {
+      await updateProject(projectId, { color });
+      await refreshLists();
+    } catch (error) {
+      console.error('Failed to update project color:', error);
+      alert('Failed to update project color');
+    }
+  };
+
+  const handleExportProject = (project: Project, format: 'json' | 'zip') => {
+    try {
+      if (format === 'json') {
+        downloadProjectAsJson(project, documents);
+      } else {
+        downloadProjectAsMarkdownZip(project, documents);
+      }
+    } catch (error) {
+      console.error('Failed to export project:', error);
+      alert(error instanceof Error ? error.message : 'Failed to export project');
+    }
+  };
+
+  const handleDocDragStart = (e: React.DragEvent, docId: string) => {
+    e.dataTransfer.setData(DOC_DRAG_TYPE, docId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingDocId(docId);
+  };
+
+  const handleDocDragEnd = () => {
+    setDraggingDocId(null);
+    setDropTargetId(null);
+  };
+
+  const handleDropZoneDragOver = (e: React.DragEvent, targetId: DropTargetId) => {
+    if (!e.dataTransfer.types.includes(DOC_DRAG_TYPE)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetId(targetId);
+  };
+
+  const handleDropZoneDragLeave = (e: React.DragEvent, targetId: DropTargetId) => {
+    if (!e.dataTransfer.types.includes(DOC_DRAG_TYPE)) return;
+    if (dropTargetId === targetId) setDropTargetId(null);
+  };
+
+  const handleDropOnTarget = async (e: React.DragEvent, targetId: DropTargetId) => {
+    if (!e.dataTransfer.types.includes(DOC_DRAG_TYPE)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const docId = e.dataTransfer.getData(DOC_DRAG_TYPE);
+    if (!docId) return;
+
+    const projectId = targetId === 'uncategorized' ? undefined : targetId;
+    const doc = documents.find((d) => d.id === docId);
+    if (doc?.folderId === projectId) {
+      handleDocDragEnd();
+      return;
+    }
+
+    await handleMoveToProject(docId, projectId);
+    handleDocDragEnd();
+  };
+
+  const isFileDragEvent = (e: React.DragEvent) =>
+    e.dataTransfer.types.includes('Files');
 
   const handleDeleteDocument = async (docId: string) => {
     if (confirm('Are you sure you want to delete this document?')) {
@@ -349,15 +429,21 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
     </>
   );
 
-  const renderDocItem = (doc: MarkdownDocument, compact = false) => {
+  const renderDocItem = (doc: MarkdownDocument, compact = false, draggable = true) => {
     const isActive = currentDocument?.id === doc.id;
     const project = doc.folderId ? projectMap.get(doc.folderId) : undefined;
+    const isDragging = draggingDocId === doc.id;
 
     return (
       <div
         key={doc.id}
+        draggable={draggable && !isSearching && renamingDocId !== doc.id}
+        onDragStart={(e) => draggable && handleDocDragStart(e, doc.id)}
+        onDragEnd={handleDocDragEnd}
         className={`relative group rounded-md cursor-pointer border transition-all duration-150 ${
           compact ? 'px-2 py-1.5 mb-0.5' : 'p-2.5 mb-1'
+        } ${
+          isDragging ? 'opacity-40 scale-[0.98]' : ''
         } ${
           isActive
             ? 'bg-blue-50 dark:bg-blue-900/25 border-blue-200 dark:border-blue-700'
@@ -458,10 +544,18 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
   const renderProjectNode = (project: Project) => {
     const projectDocs = docsByProject.get(project.id) || [];
     const expanded = isProjectExpanded(project.id);
+    const isDropTarget = dropTargetId === project.id;
 
     return (
       <div key={project.id} className="mb-1">
-        <div className="flex items-center gap-1 px-1 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 group">
+        <div
+          className={`flex items-center gap-1 px-1 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 group ${
+            isDropTarget ? 'ring-2 ring-blue-400 bg-blue-50 dark:bg-blue-900/20' : ''
+          }`}
+          onDragOver={(e) => handleDropZoneDragOver(e, project.id)}
+          onDragLeave={(e) => handleDropZoneDragLeave(e, project.id)}
+          onDrop={(e) => handleDropOnTarget(e, project.id)}
+        >
           <button
             onClick={() => toggleProjectExpanded(project.id)}
             className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
@@ -482,11 +576,28 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
             <span className="text-xs text-gray-400 shrink-0">({projectDocs.length})</span>
           </button>
           <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setColorPickerProjectId(colorPickerProjectId === project.id ? null : project.id);
+            }}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+            title="Change color"
+          >
+            <Palette className="w-3.5 h-3.5 text-gray-500" />
+          </button>
+          <button
             onClick={() => openCreateDoc(project.id)}
             className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
             title="New document in project"
           >
             <Plus className="w-3.5 h-3.5 text-gray-500" />
+          </button>
+          <button
+            onClick={() => handleExportProject(project, 'json')}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+            title="Export project (JSON)"
+          >
+            <Download className="w-3.5 h-3.5 text-gray-500" />
           </button>
           <button
             onClick={() => handleDeleteProject(project)}
@@ -496,10 +607,33 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
             <Trash2 className="w-3.5 h-3.5 text-red-400" />
           </button>
         </div>
+        {colorPickerProjectId === project.id && (
+          <div className="ml-6 mt-1 mb-1 p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">Project color</p>
+            <ProjectColorPicker
+              value={project.color}
+              onChange={(color) => handleProjectColorChange(project.id, color)}
+            />
+            {projectDocs.length > 0 && (
+              <button
+                onClick={() => handleExportProject(project, 'zip')}
+                className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                <Download className="w-3 h-3" /> Export as .md ZIP
+              </button>
+            )}
+          </div>
+        )}
         {expanded && (
-          <div className="ml-4 border-l border-gray-200 dark:border-gray-700 pl-1">
+          <div
+            className={`ml-4 border-l pl-1 ${
+              isDropTarget ? 'border-blue-400' : 'border-gray-200 dark:border-gray-700'
+            }`}
+            onDragOver={(e) => handleDropZoneDragOver(e, project.id)}
+            onDrop={(e) => handleDropOnTarget(e, project.id)}
+          >
             {projectDocs.length === 0 ? (
-              <p className="text-xs text-gray-400 px-2 py-2">No documents</p>
+              <p className="text-xs text-gray-400 px-2 py-2">Drop documents here</p>
             ) : (
               projectDocs.map((doc) => renderDocItem(doc, true))
             )}
@@ -511,13 +645,25 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
 
   return (
     <div
-      className={`flex flex-col h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 relative ${isDragOver ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${className}`}
-      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-      onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
+      className={`flex flex-col h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 relative ${isFileDragOver ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${className}`}
+      onDragOver={(e) => {
+        if (isFileDragEvent(e)) {
+          e.preventDefault();
+          setIsFileDragOver(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (isFileDragEvent(e)) {
+          e.preventDefault();
+          setIsFileDragOver(false);
+        }
+      }}
       onDrop={(e) => {
-        e.preventDefault();
-        setIsDragOver(false);
-        handleFileUpload(e.dataTransfer.files);
+        if (isFileDragEvent(e)) {
+          e.preventDefault();
+          setIsFileDragOver(false);
+          handleFileUpload(e.dataTransfer.files);
+        }
       }}
     >
       {/* Header actions */}
@@ -598,7 +744,7 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
       {isCreatingProject && (
         <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-violet-50 dark:bg-violet-900/20">
           <p className="text-xs font-medium text-violet-700 dark:text-violet-300 mb-2">New Project</p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 mb-2">
             <input
               type="text"
               value={newProjectName}
@@ -614,6 +760,7 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
             <button onClick={handleCreateProject} disabled={!newProjectName.trim()} className="px-2 py-1.5 bg-violet-500 text-white text-sm rounded-lg disabled:opacity-50">Add</button>
             <button onClick={() => { setIsCreatingProject(false); setNewProjectName(''); }} className="px-2 py-1.5 bg-gray-400 text-white text-sm rounded-lg">Cancel</button>
           </div>
+          <ProjectColorPicker value={newProjectColor} onChange={setNewProjectColor} />
         </div>
       )}
 
@@ -646,8 +793,8 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
         </div>
       )}
 
-      {isDragOver && (
-        <div className="absolute inset-0 z-10 bg-blue-100/80 dark:bg-blue-900/40 border-2 border-dashed border-blue-400 flex items-center justify-center backdrop-blur-sm">
+      {isFileDragOver && (
+        <div className="absolute inset-0 z-10 bg-blue-100/80 dark:bg-blue-900/40 border-2 border-dashed border-blue-400 flex items-center justify-center backdrop-blur-sm pointer-events-none">
           <div className="text-center">
             <Upload className="w-10 h-10 mx-auto mb-2 text-blue-500" />
             <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">Drop markdown files here</p>
@@ -722,7 +869,12 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
 
             {/* Uncategorized */}
             {uncategorizedDocs.length > 0 && (
-              <section>
+              <section
+                className={`rounded-md ${dropTargetId === 'uncategorized' ? 'ring-2 ring-blue-400 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                onDragOver={(e) => handleDropZoneDragOver(e, 'uncategorized')}
+                onDragLeave={(e) => handleDropZoneDragLeave(e, 'uncategorized')}
+                onDrop={(e) => handleDropOnTarget(e, 'uncategorized')}
+              >
                 {renderSectionHeader(
                   <FileText className="w-3.5 h-3.5" />,
                   'Uncategorized',
@@ -731,6 +883,20 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
                   () => {}
                 )}
                 {uncategorizedDocs.map((doc) => renderDocItem(doc, true))}
+              </section>
+            )}
+            {uncategorizedDocs.length === 0 && draggingDocId && (
+              <section
+                className={`rounded-md p-2 mb-2 border border-dashed ${
+                  dropTargetId === 'uncategorized'
+                    ? 'ring-2 ring-blue-400 border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}
+                onDragOver={(e) => handleDropZoneDragOver(e, 'uncategorized')}
+                onDragLeave={(e) => handleDropZoneDragLeave(e, 'uncategorized')}
+                onDrop={(e) => handleDropOnTarget(e, 'uncategorized')}
+              >
+                <p className="text-xs text-gray-500 text-center py-2">Drop here for Uncategorized</p>
               </section>
             )}
           </>
