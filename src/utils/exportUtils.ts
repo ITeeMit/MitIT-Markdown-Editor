@@ -6,6 +6,7 @@ import {
   sanitizeExportFilename,
   AdaExportMetadata,
 } from './adaExportPipeline';
+import { generateDynamicPdfBlob, PdfEngineOptions } from './pdfEngine';
 
 export class ExportService {
   static exportAsMarkdown(content: string, filename: string = 'document.md'): void {
@@ -26,24 +27,34 @@ export class ExportService {
    * 2) Fallback: server MD → DOCX → PDF (Python)
    * 3) Fallback: browser PDF with template shell
    */
+  /**
+   * PDF Generation via Dynamic Engine or Template Shell
+   */
   static async exportAsPDF(
     content: string,
     title: string = 'document',
     filename: string = 'document.pdf',
-    metadata?: AdaExportMetadata
+    options?: PdfEngineOptions
   ): Promise<void> {
     if (!content?.trim()) {
       throw new Error('ไม่มีเนื้อหาสำหรับ export PDF');
     }
 
     try {
-      const pdfBlob = await exportPdfBlob(content, title, metadata);
+      const pdfEngineOptions: PdfEngineOptions = {
+        title: title,
+        headerText: title,
+        ...options,
+      };
+      const pdfBlob = await generateDynamicPdfBlob(content, pdfEngineOptions);
+
       const pdfName = filename.endsWith('.pdf')
         ? filename
         : `${sanitizeExportFilename(title)}.pdf`;
+
       const { saveAs } = await import('file-saver');
       saveAs(pdfBlob, pdfName);
-      console.log('PDF exported:', pdfName);
+      console.log('PDF exported successfully:', pdfName);
     } catch (error) {
       console.error('Failed to export PDF:', error);
       if (error instanceof Error) {
@@ -53,20 +64,52 @@ export class ExportService {
     }
   }
 
-  /** DOCX via public/adasoft-template.docx (adamd2pdf) */
+  /** DOCX Export (supports Template or Clean Dynamic format) */
   static async exportAsDOCX(
     content: string,
     title: string,
     filename: string = 'document.docx',
-    metadata?: AdaExportMetadata
+    options?: { useTemplate?: boolean; metadata?: AdaExportMetadata }
   ): Promise<void> {
     if (!content?.trim()) {
       throw new Error('No content to export');
     }
 
     try {
-      const docxBlob = await buildAdasoftDocxBlob(content, title, metadata);
-      console.log('Generated DOCX from adasoft-template.docx');
+      let docxBlob: Blob;
+
+      if (options?.useTemplate !== false) {
+        // Use Official Company Template (adasoft-template.docx)
+        docxBlob = await buildAdasoftDocxBlob(content, title, options?.metadata);
+      } else {
+        // Clean Dynamic DOCX Export without template
+        const { asBlob } = await import('html-docx-js-typescript');
+        const markedHtml = await import('marked').then(m => m.marked(content));
+        const htmlDoc = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: 'Sarabun', 'Calibri', sans-serif; font-size: 11pt; line-height: 1.65; }
+              h1 { font-size: 18pt; color: #1e40af; border-bottom: 2px solid #1e40af; margin-top: 1.2em; }
+              h2 { font-size: 14pt; color: #334155; margin-top: 1em; }
+              p { text-align: justify; margin: 0.6em 0; }
+              table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+              th, td { border: 1px solid #cbd5e1; padding: 6px 10px; }
+              th { background-color: #f1f5f9; font-weight: bold; }
+              pre { background: #f8fafc; border-left: 4px solid #3b82f6; padding: 10px; font-family: monospace; }
+            </style>
+          </head>
+          <body>
+            <h1>${title}</h1>
+            ${markedHtml}
+          </body>
+          </html>
+        `;
+        docxBlob = (await asBlob(htmlDoc)) as Blob;
+      }
+
       const { saveAs } = await import('file-saver');
       saveAs(docxBlob, filename.endsWith('.docx') ? filename : `${filename}.docx`);
     } catch (error) {

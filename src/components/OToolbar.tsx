@@ -30,6 +30,7 @@ import { useEditorStore, EditorMode } from '@/stores/editorStore';
 import { DiagramExportService } from '@/utils/diagramExport';
 import OThemeToggle from './OThemeToggle';
 import DatabaseManagementModal from './DatabaseManagementModal';
+import { PdfExportModal, DocumentExportModalOptions } from './PdfExportModal';
 import { messageBox } from '@/utils/messageBox';
 import '../styles/print.css';
 
@@ -112,6 +113,7 @@ const OToolbar: React.FC<OToolbarProps> = ({
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [showFontOptions, setShowFontOptions] = useState(false);
   const [showDatabaseModal, setShowDatabaseModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
   const [plantUMLTheme, setPlantUMLTheme] = useState<string>('default');
 
   // Font options
@@ -255,27 +257,46 @@ const OToolbar: React.FC<OToolbarProps> = ({
     }
   };
 
-  const handlePrint = async () => {
+  const [exportModalFormat, setExportModalFormat] = useState<'pdf' | 'docx'>('pdf');
+
+  const handleOpenPdfModal = (format: 'pdf' | 'docx' = 'pdf') => {
     if ((content || '').trim().length === 0) {
-      await messageBox.warning('ไม่มีเนื้อหาสำหรับพิมพ์');
+      messageBox.warning(`ไม่มีเนื้อหาสำหรับ export ${format.toUpperCase()}`);
       return;
     }
+    setExportModalFormat(format);
+    setShowPdfModal(true);
+  };
 
+  const handlePdfModalExport = async (options: DocumentExportModalOptions) => {
+    const docTitle = currentDocument?.title || 'Untitled';
     try {
-      setIsExporting('print');
-      const docTitle = currentDocument?.title || 'Untitled';
-      await ExportService.exportAsPDF(
-        content || '',
-        docTitle,
-        `${docTitle}.pdf`,
-        {
-          created: currentDocument?.createdAt,
-          updated: currentDocument?.updatedAt,
-        }
-      );
+      if (options.exportFormat === 'docx') {
+        setIsExporting('docx');
+        await ExportService.exportAsDOCX(
+          content || '',
+          docTitle,
+          `${docTitle}.docx`,
+          {
+            useTemplate: options.useTemplate,
+            metadata: {
+              created: currentDocument?.createdAt,
+              updated: currentDocument?.updatedAt,
+            },
+          }
+        );
+      } else {
+        setIsExporting('print');
+        await ExportService.exportAsPDF(
+          content || '',
+          docTitle,
+          `${docTitle}.pdf`,
+          options
+        );
+      }
     } catch (error) {
-      console.error('Print/PDF error:', error);
-      await messageBox.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการพิมพ์');
+      console.error('Export error:', error);
+      await messageBox.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการส่งออกเอกสาร');
     } finally {
       setIsExporting(null);
     }
@@ -297,8 +318,10 @@ const OToolbar: React.FC<OToolbarProps> = ({
         docTitle,
         `${docTitle}.docx`,
         {
-          created: currentDocument?.createdAt,
-          updated: currentDocument?.updatedAt,
+          metadata: {
+            created: currentDocument?.createdAt,
+            updated: currentDocument?.updatedAt,
+          },
         }
       );
     } catch (error) {
@@ -641,17 +664,17 @@ const OToolbar: React.FC<OToolbarProps> = ({
         {currentMode === 'markdown' && (
           <>
             <ToolbarButton
-              onClick={handlePrint}
-              icon={<Printer className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
-              title="Export PDF"
+              onClick={() => handleOpenPdfModal('pdf')}
+              icon={<Printer className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+              title="Export PDF (ตั้งค่าจัดหน้า & Header/Footer)"
               disabled={(content || '').trim().length === 0}
               loading={isExporting === 'print'}
             />
             
             <ToolbarButton
-              onClick={handleExportDOCX}
+              onClick={() => handleOpenPdfModal('docx')}
               icon={<FileTextIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
-              title="ส่งออกเป็น DOCX"
+              title="ส่งออกเป็น DOCX (เลือก Template & ตั้งค่าจัดหน้า)"
               disabled={(content || '').trim().length === 0}
               loading={isExporting === 'docx'}
             />
@@ -702,6 +725,17 @@ const OToolbar: React.FC<OToolbarProps> = ({
         <DatabaseManagementModal
           isOpen={showDatabaseModal}
           onClose={() => setShowDatabaseModal(false)}
+        />
+      )}
+
+      {/* PDF / Document Export Modal */}
+      {showPdfModal && (
+        <PdfExportModal
+          isOpen={showPdfModal}
+          onClose={() => setShowPdfModal(false)}
+          onExport={handlePdfModalExport}
+          defaultTitle={currentDocument?.title || 'Untitled'}
+          initialFormat={exportModalFormat}
         />
       )}
     </div>

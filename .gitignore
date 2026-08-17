@@ -13,6 +13,9 @@ dist-ssr
 *.local
 .agent
 .trae
+dist-test-pdf/
+dist-test-pdf2/
+*.docx
 
 # Editor directories and files
 .vscode/*

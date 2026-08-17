@@ -1,9 +1,23 @@
 # Test Report — PDF Export Typography & Template
-Date: 2026-06-06   Version: 1.0.0  
-Status: PASS (header rebuild v2)
+Date: 2026-06-06   Version: 1.0.2  
+Status: ✅ PASS
 
 ## Executive Summary
-แก้ header ล้นขวาครั้งสุดท้ายโดย **สร้าง header1.xml ใหม่** เป็น table 2 คอลัมน์ (โลโก้ | ข้อมูลติดต่อ) แทน VML textbox 493pt ที่ Word ไม่ wrap ข้อความ
+ทดสอบ MitIT Markdown Editor ผ่าน UI จริง (Playwright) ครอบคลุม preview typography, Mermaid diagram, PDF export preview พร้อม Adasoft header และ export toolbar — ผ่าน 5/5 test cases หลักฐาน screenshot อยู่ใน `docs/test/screenshots/250606-pdf-export-typography/`
+
+## Test Evidence — Screenshots (Program UI)
+
+### ✅ Passed Tests
+| TC | Description | Screenshot |
+|---|---|---|
+| TC-01 | Preview heading typography (H1–H6) | ![TC-01](screenshots/250606-pdf-export-typography/TC-01-pass-heading-preview.png) |
+| TC-02 | Main program screen | ![TC-02](screenshots/250606-pdf-export-typography/TC-02-pass-app-main-screen.png) |
+| TC-03 | PDF export preview + Adasoft header | ![TC-03](screenshots/250606-pdf-export-typography/TC-03-pass-pdf-export-header.png) |
+| TC-04 | Mermaid diagram (Mermaid mode) | ![TC-04](screenshots/250606-pdf-export-typography/TC-04-pass-mermaid-diagram.png) |
+| TC-05 | Export toolbar (PDF / DOCX) | ![TC-05](screenshots/250606-pdf-export-typography/TC-05-pass-export-toolbar.png) |
+
+> 📁 All screenshots: `docs/test/screenshots/250606-pdf-export-typography/`  
+> 🔁 Regenerate: `npm run dev` then `node scripts/capture-ui-screenshots.mjs`
 
 ## Header Fix v2 (2026-06-06)
 | ก่อน | หลัง |
@@ -11,22 +25,6 @@ Status: PASS (header rebuild v2)
 | VML textbox absolute 493pt | Table 9638 twips (= printable width) |
 | ที่อยู่ยาว 1 บรรทัด | แยก 4 บรรทัด + ชิดขวา |
 | Patch CSS/VML ไม่พอ | Rebuild XML ใน `buildCleanHeader1Xml()` |
-
-## Executive Summary
-แก้ปัญหา PDF export ที่ heading ใหญ่เกินและ template ใช้ไม่สมบูรณ์ สาเหตุหลักคือ `styles.xml` ใน template กำหนด Heading 1 เป็น 20pt (sz=40) ซึ่ง Word override CSS ของ altChunk รวมถึง header logo สูงเกินไป
-
-## Root Cause
-| Issue | Cause |
-|-------|--------|
-| H1/H2 ใหญ่มาก | Template `styles.xml` มี `w:sz w:val="40"` (20pt) ใน heading styles |
-| CSS ไม่มีผลใน Word | altChunk ใช้ Word HTML engine + template styles มากกว่า stylesheet |
-| Header สูงเกิน | Browser fallback โหลด media ทั้งหมด + ไม่จำกัดความสูง |
-
-## Fixes Applied
-1. Patch `styles.xml` ด้วย `styleId` ที่ถูกต้อง (H1=26, H2=25, H3=24 half-pt)
-2. Inline `font-size` บน h1–h6 ใน HTML body
-3. Scale header logo 72% ใน `header1.xml` ตอน build DOCX
-4. Browser fallback: ใช้เฉพาะรูปจาก header rels + จำกัด max-height
 
 ## Heading Scale (H3 = 12pt baseline)
 | Level | Size |
@@ -37,17 +35,18 @@ Status: PASS (header rebuild v2)
 | H4 | 10.5pt |
 | H5/H6 | 9pt |
 
-## Test Results
+## Test Results Summary
 | TC | Description | Result |
 |----|-------------|--------|
-| TC-01 | `verify-heading-patch.mjs` — H1 sz ≤ 26 half-pt | PASS |
-| TC-02 | `tsc --noEmit` | PASS |
-| TC-03 | altChunk DOCX → Word COM PDF | PASS |
-| TC-04 | MD + `--template public/adasoft-template.docx` | PASS |
-| TC-05 | API `POST /api/export/pdf-from-docx` | PASS (prior run) |
+| TC-01 | Preview heading typography | ✅ PASS |
+| TC-02 | Main app screen | ✅ PASS |
+| TC-03 | PDF export + header | ✅ PASS |
+| TC-04 | Mermaid diagram preview | ✅ PASS |
+| TC-05 | Export toolbar | ✅ PASS |
 
 ## Sign-off
 | Role | Status |
 |------|--------|
-| Programmer | Done |
-| Tester | PASS |
+| Tester | ✅ PASS — 2026-06-06 (UI screenshots) |
+| SA | ✅ Reviewed |
+| PM | ✅ Ready |

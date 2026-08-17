@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { marked } from 'marked';
 import { useEditorStore } from '@/stores/editorStore';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check } from 'lucide-react';
+import { messageBox } from '@/utils/messageBox';
 import mermaid from 'mermaid';
 import plantumlEncoder from 'plantuml-encoder';
 
@@ -12,8 +13,69 @@ interface OPreviewPanelProps {
 const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
   const { currentDocument, content, currentMode } = useEditorStore();
   const [isVisible, setIsVisible] = useState(true);
+  const [isCopied, setIsCopied] = useState(false);
   const mermaidRef = useRef<HTMLDivElement>(null);
   const plantumlRef = useRef<HTMLDivElement>(null);
+
+  const handleCopyFormattedContent = async () => {
+    const currentContent = content || currentDocument?.content || '';
+    if (!currentContent.trim()) {
+      await messageBox.warning('ไม่มีเนื้อหาสำหรับคัดลอก');
+      return;
+    }
+
+    try {
+      let htmlToCopy = '';
+
+      if (currentMode === 'markdown') {
+        const parsedHtml = await marked(currentContent);
+        htmlToCopy = `
+          <div style="font-family: 'Sarabun', 'Noto Sans Thai', Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2937;">
+            ${parsedHtml}
+          </div>
+        `;
+      } else {
+        const previewEl = document.querySelector('.preview-content') || mermaidRef.current || plantumlRef.current;
+        htmlToCopy = previewEl ? previewEl.innerHTML : `<pre>${currentContent}</pre>`;
+      }
+
+      const plainText = currentContent;
+
+      if (navigator.clipboard && window.ClipboardItem) {
+        const htmlBlob = new Blob([htmlToCopy], { type: 'text/html' });
+        const textBlob = new Blob([plainText], { type: 'text/plain' });
+        const item = new ClipboardItem({
+          'text/html': htmlBlob,
+          'text/plain': textBlob,
+        });
+        await navigator.clipboard.write([item]);
+      } else {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlToCopy;
+        tempDiv.style.position = 'fixed';
+        tempDiv.style.left = '-9999px';
+        document.body.appendChild(tempDiv);
+
+        const range = document.createRange();
+        range.selectNodeContents(tempDiv);
+        const selection = window.getSelection();
+        if (selection) {
+          selection.removeAllRanges();
+          selection.addRange(range);
+          document.execCommand('copy');
+          selection.removeAllRanges();
+        }
+        document.body.removeChild(tempDiv);
+      }
+
+      setIsCopied(true);
+      await messageBox.success('คัดลอกเนื้อหาพร้อมฟอร์แมตสำเร็จ! (พร้อมสำหรับวางใน Word / Email)');
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error('Clipboard copy error:', err);
+      await messageBox.error('เกิดข้อผิดพลาดในการคัดลอกไปยังคลิปบอร์ด');
+    }
+  };
 
   // Configure marked options for better rendering
   useEffect(() => {
@@ -481,19 +543,48 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           Preview - {currentMode.charAt(0).toUpperCase() + currentMode.slice(1)}
         </h3>
-        
-        <button
-          onClick={() => setIsVisible(false)}
-          className="
-            flex items-center gap-2 px-3 py-1
-            text-gray-600 dark:text-gray-400
-            hover:text-gray-900 dark:hover:text-gray-100
-            transition-colors duration-200
-          "
-          title="Hide Preview"
-        >
-          <EyeOff className="w-4 h-4" />
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Clipboard Copy Button for MS Word & Email */}
+          <button
+            onClick={handleCopyFormattedContent}
+            className={`
+              flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border
+              shadow-sm transition-all duration-200
+              ${
+                isCopied
+                  ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300'
+              }
+            `}
+            title="คัดลอกข้อความแบบจัดรูปแบบ Rich Text (นำไปวางใน MS Word หรือ Email ได้ทันที)"
+          >
+            {isCopied ? (
+              <>
+                <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
+                <span>คัดลอกเรียบร้อย!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span>คัดลอกไป Word/Email</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => setIsVisible(false)}
+            className="
+              flex items-center gap-2 px-2 py-1
+              text-gray-600 dark:text-gray-400
+              hover:text-gray-900 dark:hover:text-gray-100
+              transition-colors duration-200
+            "
+            title="Hide Preview"
+          >
+            <EyeOff className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Preview Content */}

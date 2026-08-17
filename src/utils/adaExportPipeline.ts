@@ -1,5 +1,6 @@
 import { marked } from 'marked';
 import PizZip from 'pizzip';
+import { generateDynamicPdfBlob } from './pdfEngine';
 
 const TEMPLATE_URL = '/adasoft-template.docx';
 /** A4 content width for 6.2in diagrams (adamd2pdf) @ 96dpi */
@@ -916,10 +917,8 @@ export async function buildDocxFromTemplate(
     zip.file('word/styles.xml', patchTemplateStyles(stylesFile.asText()));
   }
 
-  const headerFile = zip.file('word/header1.xml');
-  if (headerFile) {
-    zip.file('word/header1.xml', patchTemplateHeader(headerFile.asText()));
-  }
+  // Preserve original header1.xml from public/adasoft-template.docx intact
+  // (Do not overwrite with synthetic XML so company header layout remains authentic)
 
   const htmlForChunk = options.embedDiagramImages
     ? embedDiagramImagesInDocx(zip, fullHtml)
@@ -1090,31 +1089,42 @@ function bytesToDataUrl(bytes: Uint8Array, ext: string): string {
 
 /** Extract header images referenced by word/header1.xml (not all media) */
 export async function loadAdasoftTemplateShell(): Promise<AdasoftTemplateShell> {
-  const response = await fetch(TEMPLATE_URL);
-  if (!response.ok) throw new Error(`Template not found: ${TEMPLATE_URL}`);
+  let logoSrc = '/adasoft-logo.png';
+  try {
+    const response = await fetch(TEMPLATE_URL);
+    if (response.ok) {
+      const zip = new PizZip(await response.arrayBuffer());
+      const headerRels = zip.file('word/_rels/header1.xml.rels')?.asText() ?? '';
+      const mediaTargets = [...headerRels.matchAll(/Target="(media\/[^"]+)"/g)].map((m) => `word/${m[1]}`);
 
-  const zip = new PizZip(await response.arrayBuffer());
-  const headerRels = zip.file('word/_rels/header1.xml.rels')?.asText() ?? '';
-  const mediaTargets = [...headerRels.matchAll(/Target="(media\/[^"]+)"/g)].map((m) => `word/${m[1]}`);
+      const images = mediaTargets
+        .map((mediaPath) => {
+          const file = zip.file(mediaPath);
+          if (!file) return null;
+          const ext = mediaPath.split('.').pop()?.toLowerCase() ?? 'png';
+          return bytesToDataUrl(file.asUint8Array(), ext);
+        })
+        .filter(Boolean) as string[];
 
-  const images = mediaTargets
-    .map((mediaPath) => {
-      const file = zip.file(mediaPath);
-      if (!file) return null;
-      const ext = mediaPath.split('.').pop()?.toLowerCase() ?? 'png';
-      return bytesToDataUrl(file.asUint8Array(), ext);
-    })
-    .filter(Boolean) as string[];
+      if (images.length > 0) {
+        logoSrc = images[0];
+      }
+    }
+  } catch (err) {
+    console.warn('Could not extract header logo from template zip, fallback to /adasoft-logo.png', err);
+  }
 
-  const headerHtml =
-    images.length > 0
-      ? `<div class="adasoft-template-header">${images
-          .map(
-            (src, i) =>
-              `<img src="${src}" alt="Adasoft header ${i + 1}" class="template-header-image" />`
-          )
-          .join('')}</div>`
-      : '';
+  const headerHtml = `
+    <div class="adasoft-template-header">
+      <div class="adasoft-header-logo">
+        <img src="${logoSrc}" alt="Adasoft" class="template-header-image" />
+      </div>
+      <div class="adasoft-header-contact">
+        <div>26/5-8 Soi Ladprao83 (Chit Ari) Ladprao Rd. Khlong Chaokhun Sing, Wangthonglang Bangkok 10310 Thailand.</div>
+        <div>Tel. +662 530-1681(auto)&nbsp;&nbsp;Fax. +662 25301681 ext. 1109&nbsp;&nbsp;email : <a href="mailto:info@ada-soft.com">info@ada-soft.com</a></div>
+      </div>
+    </div>
+  `;
 
   const footerHtml = `<div class="adasoft-template-footer"><span>Adasoft</span></div>`;
 
@@ -1124,17 +1134,37 @@ export async function loadAdasoftTemplateShell(): Promise<AdasoftTemplateShell> 
 function getTemplateShellCss(): string {
   return `
     .adasoft-template-header {
-      margin-bottom: 6pt;
-      padding-bottom: 4pt;
-      border-bottom: 1px solid #cccccc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12pt;
+      padding-bottom: 6pt;
+      border-bottom: 1px solid #b0b0b0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .adasoft-header-logo {
+      flex: 0 0 auto;
     }
     .template-header-image {
       display: block;
-      max-width: 72%;
       max-height: 0.55in;
       width: auto;
       height: auto;
       object-fit: contain;
+    }
+    .adasoft-header-contact {
+      flex: 1 1 auto;
+      text-align: left;
+      margin-left: 16pt;
+      font-family: 'Sarabun', 'Calibri', Arial, sans-serif;
+      font-size: 8.5pt;
+      color: #555555;
+      line-height: 1.45;
+    }
+    .adasoft-header-contact a {
+      color: #0066cc;
+      text-decoration: underline;
     }
     .adasoft-template-footer {
       margin-top: 16pt;
@@ -1292,5 +1322,10 @@ export async function exportPdfBlob(
     console.warn('Server PDF export unavailable:', error);
   }
 
-  return generatePdfBlobInBrowser(content, title, metadata);
+  return generateDynamicPdfBlob(content, {
+    title,
+    useTemplate: true,
+    showHeader: true,
+    showFooter: true,
+  });
 }
