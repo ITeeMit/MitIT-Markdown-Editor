@@ -1,189 +1,193 @@
 # MitIT Markdown Editor
 
 <div align="center">
-  <img src="public/markdown2pdf.png" alt="MitIT Markdown Editor" width="200" height="200">
+  <img src="public/markdown2pdf.png" alt="MitIT Markdown Editor" width="180" height="180">
 
-  **Multi-mode editor with Adasoft-branded DOCX/PDF export**
+  ### **Advanced Markdown, Mermaid & PlantUML Editor with Official Adasoft Template Export**
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![React](https://img.shields.io/badge/React-18.x-blue.svg)](https://reactjs.org/)
   [![Vite](https://img.shields.io/badge/Vite-6.x-646CFF.svg)](https://vitejs.dev/)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://www.typescriptlang.org/)
+  [![PWA](https://img.shields.io/badge/PWA-Ready-green.svg)](https://web.dev/progressive-web-apps/)
 </div>
 
-Markdown, Mermaid, and PlantUML editor with live preview, project organization, and professional export using the **Adasoft Word template** (`public/adasoft-template.docx`).
+---
 
-## Features
+**MitIT Markdown Editor** is a modern, high-performance editor with real-time live preview for **Markdown**, **Mermaid**, and **PlantUML**. It features offline-first project management and produces publication-ready **PDF & DOCX** documents formatted with the official **Adasoft Company Template** (`public/adasoft-template.docx`).
 
-### Multi-mode editing
+---
+
+## 🌟 Key Features
+
+### 1. 📊 Interactive Mermaid & PlantUML Live Diagram Preview
+- **Auto-Render in Markdown**: Write or paste ```` ```mermaid ```` or ```` ```plantuml ```` blocks inside Markdown — they are automatically converted into interactive visual diagrams (SVG) in the live preview.
+- **Source Code Included Below Diagram**: Every diagram card displays the rendered graphic on top with its formatted source code underneath.
+- **Code Actions**: 1-click **"คัดลอกโค้ด (Copy Code)"** and **"ซ่อน/แสดงโค้ด (Toggle Code)"** for clutter-free reading.
+- **🔍 Fullscreen Zoom Modal**: Inspect intricate flowcharts, sequence diagrams, and multi-tier architectures in full resolution with the built-in lightbox viewer.
+- **Theme-Aware**: Seamlessly switches diagram styling between Light Mode and Dark Mode.
+
+### 2. 📑 Official Adasoft Template PDF & DOCX Export
+- **Authentic Header**: Adasoft *"Grow Together"* logo, full corporate address, telephone, fax, and contact email (`info@ada-soft.com`).
+- **Official Certification Footer**: High-resolution certification badges strip (**TÜV NORD ISO 9001**, **ISO 45001**, **Otabu ISO 27001:2022**, **ISO/IEC 29110 SGS**, and **CMMI Level 3**) with page numbering.
+- **Smart Pagination Engine**: Eliminates clipped text lines across page breaks with intelligent paragraph splitting and table row pagination.
+- **Diagrams in Export**: Mermaid and PlantUML diagrams are automatically scaled and embedded into exported PDFs and Word DOCX files.
+
+### 3. 📋 1-Click Copy to MS Word & Email (Rich Text)
+- Click **"คัดลอกไป Word/Email"** in the preview toolbar to copy rich formatted HTML directly to your clipboard.
+- Paste directly into Microsoft Word, Outlook, or Gmail with rendered diagram graphics, tables, and typography intact.
+
+### 4. 🗂️ Project & Document Organization
+- **Color-Coded Projects**: Organize documents by project folders with custom color tags.
+- **Offline-First Storage**: Powered by IndexedDB (Dexie) with automatic debounced saving.
+- **Quick Search & Replace**: `Ctrl+F` for search, `Ctrl+H` for find & replace with case sensitivity support.
+- **Batch Import/Export**: Import `.md` files or export multiple documents into Excel spreadsheets.
+
+### 5. 🇹🇭 Enhanced Thai Typography Support
+- Native integration with **TH Sarabun New**, **Sarabun**, **Kanit**, and **Prompt** Google Fonts.
+- Crisp line-height and word-wrapping optimized for Thai business and technical documents.
+
+---
+
+## 🛠️ Modes & Supported Syntaxes
 
 | Mode | Description |
 |------|-------------|
-| **Markdown** | GFM markdown with live preview |
-| **Mermaid** | Flowcharts, sequence diagrams, Gantt charts |
-| **PlantUML** | UML diagrams via Kroki |
+| **Markdown** | GFM Markdown with live table formatting, task lists, code highlighting, and auto-rendered Mermaid / PlantUML blocks |
+| **Mermaid** | Dedicated diagram editor for Flowcharts, Sequence Diagrams, Class Diagrams, State Diagrams, Gantt Charts, Git Graphs, etc. |
+| **PlantUML** | Dedicated UML editor with live SVG rendering via public & Kroki encoders with custom theme support |
 
-**Editor shortcuts:** `Ctrl+F` find · `Ctrl+H` find & replace · case-sensitive search
-
-### Project organization
-
-- Sidebar projects with colors, drag-and-drop, and nested documents
-- IndexedDB storage (offline-first)
-- Import `.md` files · auto-save · rename / delete
-
-### Export
-
-| Format | Markdown mode | Diagram modes |
-|--------|---------------|---------------|
-| **PDF** | Adasoft template (primary) | — |
-| **DOCX** | Adasoft template | — |
-| **Markdown** | `.md` download | — |
-| **Excel** | Multi-document workbook | — |
-| **SVG** | — | Mermaid / PlantUML |
-
-#### Adasoft DOCX / PDF pipeline
-
-Exports use `src/utils/adaExportPipeline.ts` and `public/adasoft-template.docx`:
-
-1. Markdown → HTML (headings, tables, code blocks, diagrams)
-2. **Mermaid / PlantUML** → PNG via [mermaid.ink](https://mermaid.ink) / [Kroki](https://kroki.io), placed **above** the source code in a gray box
-3. HTML injected into the template via Word **altChunk**
-4. Template header rebuilt (logo + contact, 2 lines) and heading sizes patched (H3 = 12pt baseline)
-
-**PDF conversion order:**
-
-1. Browser builds template DOCX → `POST /api/export/pdf-from-docx` → Word COM (flatten altChunk, then PDF)
-2. Fallback: `POST /api/export/pdf` → Python `md_to_pdf.py` (MD → DOCX → PDF)
-3. Fallback: browser html2canvas + jsPDF with template shell
-
-**DOCX:** data-URI diagram images (Word displays them correctly in altChunk HTML).
-
-**PDF:** same data-URI HTML; server flattens altChunk to native Word content before PDF export.
-
-### Thai language support
-
-- TH Sarabun New / Sarabun in exports
-- Thai text in PDF, DOCX, and print output
-
-## Tech stack
-
-- **UI:** React 18, Tailwind CSS, Zustand, Lucide
-- **Build:** Vite 6, TypeScript
-- **Markdown:** marked (GFM)
-- **Diagrams:** Mermaid, PlantUML encoder + external render APIs
-- **Export:** PizZip, html-docx-js-typescript, html2canvas, jsPDF
-- **Storage:** Dexie (IndexedDB)
-- **PWA:** vite-plugin-pwa
-
-## Prerequisites
-
-- **Node.js 18+**
-- **PDF export (recommended, Windows):**
-  - Microsoft Word (for COM automation)
-  - Python 3 with `pywin32`, `python-docx`, `requests`, `beautifulsoup4`, `markdown`
-  - `md_to_pdf.py` at `../../.agent/scripts/md_to_pdf.py` relative to this project (or adjust path in `server/adaPdfExport.ts`)
-
-Without Word/Python, PDF falls back to browser rendering (layout may differ).
-
-## Installation
-
-```bash
-git clone https://github.com/ITeeMit/MitIT-Markdown-Editor.git
-cd MitIT-Markdown-Editor
-npm install
-npm run dev
-```
-
-Open **http://localhost:5173**
-
-### Production build
-
-```bash
-npm run build
-npm run preview
-```
-
-## Usage
-
-1. Create or open a document from the sidebar.
-2. Choose **Markdown**, **Mermaid**, or **PlantUML** mode.
-3. Edit with live preview.
-4. Export from the toolbar: **PDF**, **DOCX**, **MD**, **Excel**, or **SVG** (diagram modes).
-
-### Diagram blocks in Markdown
+### Diagram Block Syntax in Markdown
 
 ````markdown
+### 3-Tier High-Level Architecture
+
 ```mermaid
-sequenceDiagram
-    A->>B: Hello
+flowchart TD
+    Client["POS Client (Store Front)"] --> Gateway["Integration Gateway / BackOffice"]
+    Gateway --> ERP["Oracle NetSuite / SAP ERP"]
 ```
 
 ```plantuml
 @startuml
-Alice -> Bob: Hello
+actor User
+participant "POS Client" as POS
+participant "BackOffice" as BO
+
+User -> POS: Scan Barcode
+POS -> BO: Query Price
+BO --> POS: Return Price & Promo
 @enduml
 ```
 ````
 
-Each block exports as **diagram image + source code** (same order as DOCX).
+---
 
-## Development
+## 📤 Export Options
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Dev server + PDF export API middleware |
-| `npm run build` | Production build |
-| `npm run check` | TypeScript check |
-| `npm run lint` | ESLint |
+| Format | Output Description | Template Used |
+|--------|---------------------|---------------|
+| **PDF** | High-resolution PDF with Smart Pagination & Thai fonts | Adasoft Official Template / Modern Theme |
+| **DOCX** | Native `.docx` document with Word `altChunk` HTML engine | `public/adasoft-template.docx` |
+| **Markdown** | Standard `.md` text file | — |
+| **Excel** | Multi-document metadata and content workbook | — |
+| **SVG** | Vector diagram download (Mermaid / PlantUML modes) | — |
 
-### Verify export pipeline
+---
+
+## 💻 Tech Stack
+
+- **Frontend**: React 18, TypeScript, Tailwind CSS, Zustand, Lucide Icons
+- **Markdown & Diagrams**: marked (GFM), Mermaid.js v10, PlantUML Encoder
+- **Document Generation**: jsPDF, html2canvas, PizZip, html-docx-js-typescript, XLSX
+- **Build & PWA**: Vite 6, vite-plugin-pwa (Workbox caching)
+- **Database**: Dexie.js (IndexedDB)
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **Node.js 18+** and **npm** (or **pnpm**)
+
+### Installation
 
 ```bash
-node scripts/verify-heading-patch.mjs
-node scripts/verify-header-rebuild.mjs
-node scripts/verify-diagram-embed.mjs
-npm run check
+# Clone the repository
+git clone https://github.com/ITeeMit/MitIT-Markdown-Editor.git
+cd MitIT-Markdown-Editor
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
 ```
 
-### Key paths
+Open your browser at **http://localhost:5173**
+
+### Production Build
+
+```bash
+# Build the production PWA bundle
+npm run build
+
+# Preview production build locally
+npm run preview
+```
+
+---
+
+## 📁 Project Structure
 
 ```
 ├── public/
-│   └── adasoft-template.docx    # Word template (required for DOCX/PDF)
-├── plugins/
-│   └── adaPdfExportPlugin.ts    # Vite middleware: /api/export/pdf*
+│   ├── adasoft-template.docx       # Official Word template
+│   ├── adasoft-header-logo.png     # Header Logo ("Grow Together")
+│   └── adasoft-footer-badges.png   # Footer Certifications (ISO/CMMI/SGS)
+├── src/
+│   ├── components/
+│   │   ├── OMarkdownEditor.tsx     # Code & Markdown editor pane
+│   │   ├── OPreviewPanel.tsx       # Live Preview with interactive diagram cards & zoom
+│   │   ├── OToolbar.tsx            # Action toolbar & export buttons
+│   │   ├── OFileManager.tsx        # Project & file hierarchy manager
+│   │   └── PdfExportModal.tsx      # Export configuration dialog
+│   ├── stores/
+│   │   ├── editorStore.ts          # Document & active mode state
+│   │   └── projectStore.ts         # Project folders state
+│   └── utils/
+│       ├── adaExportPipeline.ts    # AltChunk Word template pipeline & syntax fixers
+│       ├── pdfEngine.ts            # Dynamic Page-by-Page Smart Pagination PDF Engine
+│       └── exportUtils.ts          # Unified ExportService
 ├── server/
-│   └── adaPdfExport.ts          # Word COM / Python PDF conversion
-├── scripts/                     # Template & export verification
-├── src/utils/
-│   ├── adaExportPipeline.ts     # Core MD → HTML → DOCX/PDF
-│   └── exportUtils.ts           # ExportService API
-└── docs/test/                   # Export test notes
+│   └── adaPdfExport.ts             # Server-side Word COM / Python PDF converter (optional)
+├── vite.config.ts                  # Vite & PWA configuration
+└── package.json
 ```
 
-### API (dev server only)
+---
 
-| Endpoint | Method | Body | Description |
-|----------|--------|------|-------------|
-| `/api/export/pdf-from-docx` | POST | DOCX binary | Template DOCX → PDF |
-| `/api/export/pdf` | POST | JSON `{ content, title }` | Markdown → PDF (Python) |
+## 🐳 Docker Deployment
 
-## Docker
-
+Run with Docker:
 ```bash
 docker build -t mitit-markdown-editor .
 docker run -d -p 8037:80 --name mitit-markdown-editor mitit-markdown-editor
 ```
+Or with `docker-compose`:
+```bash
+docker-compose up -d
+```
+Access the application at **http://localhost:8037**
 
-Or: `docker-compose up -d` → **http://localhost:8037**
+---
 
-> Docker serves the static PWA only. Server-side PDF (Word COM) requires the Windows dev setup above.
+## 📄 License
 
-## License
-
-MIT — see [LICENSE](LICENSE).
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <div align="center">
-  Made with ❤️ by MitIT Team · Adasoft template export
+  Developed with ❤️ by <strong>MitIT Team</strong> · Adasoft Template Integration
 </div>
