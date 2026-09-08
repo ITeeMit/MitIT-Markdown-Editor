@@ -1,6 +1,8 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { marked } from 'marked';
+import plantumlEncoder from 'plantuml-encoder';
+import { fixMermaidSyntax, fixPlantUmlSyntax } from './adaExportPipeline';
 
 export interface PdfEngineOptions {
   title?: string;
@@ -308,6 +310,7 @@ export async function generateDynamicPdfBlob(
   markdownContent: string,
   options: PdfEngineOptions = {}
 ): Promise<Blob> {
+  const isTemplate = options.useTemplate !== false;
   const themeName = options.theme || 'modern';
   const theme = THEME_PRESETS[themeName] || THEME_PRESETS.modern;
   const fontFamily = options.fontFamily || 'Sarabun';
@@ -363,6 +366,53 @@ export async function generateDynamicPdfBlob(
   stage.style.cssText = `width: ${pagePxWidth - marginPx * 2}px; position: absolute; visibility: hidden;`;
   stage.innerHTML = rawHtml;
   host.appendChild(stage);
+
+  // Convert diagram code blocks in stage to rendered diagram images + code
+  const pres = Array.from(stage.querySelectorAll('pre'));
+  for (const pre of pres) {
+    const codeEl = pre.querySelector('code');
+    if (!codeEl) continue;
+    const classes = Array.from(codeEl.classList);
+    const langClass = classes.find((c) => c.startsWith('language-'));
+    const lang = (langClass?.replace('language-', '') || '').toLowerCase();
+    const codeText = (codeEl.textContent || '').trim();
+
+    if (lang === 'mermaid' || ['plantuml', 'puml', 'uml'].includes(lang)) {
+      const container = document.createElement('div');
+      container.className = 'pdf-diagram-wrapper';
+      container.style.cssText = 'margin: 12px 0; text-align: center;';
+
+      if (lang === 'mermaid') {
+        const payload = JSON.stringify({
+          code: fixMermaidSyntax(codeText),
+          mermaid: { theme: 'default', flowchart: { useMaxWidth: true, htmlLabels: true } },
+        });
+        const encoded = btoa(unescape(encodeURIComponent(payload)));
+        const img = document.createElement('img');
+        img.src = `https://mermaid.ink/img/${encoded}?width=${pagePxWidth - marginPx * 2}`;
+        img.alt = 'Mermaid Diagram';
+        img.style.cssText = 'max-width: 100%; height: auto; display: block; margin: 0 auto 6px auto;';
+        container.appendChild(img);
+      } else {
+        const encoded = plantumlEncoder.encode(fixPlantUmlSyntax(codeText));
+        const img = document.createElement('img');
+        img.src = `https://www.plantuml.com/plantuml/png/${encoded}`;
+        img.alt = 'PlantUML Diagram';
+        img.style.cssText = 'max-width: 100%; height: auto; display: block; margin: 0 auto 6px auto;';
+        container.appendChild(img);
+      }
+
+      const codePre = document.createElement('pre');
+      codePre.style.cssText =
+        'font-size: 9px; line-height: 1.4; padding: 6px 10px; margin-top: 6px; text-align: left; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;';
+      const codeChild = document.createElement('code');
+      codeChild.textContent = codeText;
+      codePre.appendChild(codeChild);
+      container.appendChild(codePre);
+
+      pre.replaceWith(container);
+    }
+  }
 
   // Wait for images & fonts
   const images = stage.querySelectorAll('img');
@@ -423,25 +473,26 @@ export async function generateDynamicPdfBlob(
     }
 
     // Header Region
+    const isTemplate = options.useTemplate !== false;
     const headerEl = document.createElement('div');
     headerEl.className = 'pdf-header-region';
     if (options.showHeader !== false) {
-      if (options.useTemplate) {
+      if (isTemplate) {
         headerEl.style.cssText = `
           display: flex;
           justify-content: space-between;
-          align-items: center;
+          align-items: flex-start;
           padding-bottom: 6px;
-          border-bottom: 1px solid #b0b0b0;
+          border-bottom: 1px solid #7f7f7f;
           margin-bottom: 12px;
           width: 100%;
           box-sizing: border-box;
         `;
         headerEl.innerHTML = `
-          <div style="flex: 0 0 auto;">
-            <img src="/adasoft-logo.png" alt="Adasoft" style="max-height: 42px; width: auto; display: block;" />
+          <div style="flex: 0 0 auto; display: flex; align-items: center;">
+            <img src="/adasoft-header-logo.png" alt="Adasoft" style="max-height: 40px; width: auto; display: block;" onerror="this.src='/adasoft-logo.png'" />
           </div>
-          <div style="flex: 1 1 auto; text-align: left; margin-left: 16px; font-family: '${fontFamily}', sans-serif; font-size: 10px; color: #555555; line-height: 1.45;">
+          <div style="flex: 1 1 auto; text-align: left; margin-left: 20px; font-family: '${fontFamily}', 'TH Sarabun New', 'Sarabun', sans-serif; font-size: 9.5px; color: #333333; line-height: 1.45;">
             <div>26/5-8 Soi Ladprao83 (Chit Ari) Ladprao Rd. Khlong Chaokhun Sing, Wangthonglang Bangkok 10310 Thailand.</div>
             <div>Tel. +662 530-1681(auto)&nbsp;&nbsp;Fax. +662 25301681 ext. 1109&nbsp;&nbsp;email : <span style="color: #0066cc; text-decoration: underline;">info@ada-soft.com</span></div>
           </div>
@@ -484,23 +535,44 @@ export async function generateDynamicPdfBlob(
     const footerEl = document.createElement('div');
     footerEl.className = 'pdf-footer-region';
     if (options.showFooter !== false) {
-      footerEl.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-family: '${fontFamily}', sans-serif;
-        font-size: 11px;
-        color: #64748b;
-        padding-top: 6px;
-        border-top: 1px solid ${theme.ruleColor};
-        margin-top: 12px;
-        width: 100%;
-        box-sizing: border-box;
-      `;
-      footerEl.innerHTML = `
-        <span>${escapeHtml(options.footerText || options.author || `Markdown Editor • ${dateStr}`)}</span>
-        <span class="page-num-placeholder">--</span>
-      `;
+      if (isTemplate) {
+        footerEl.style.cssText = `
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-top: 6px;
+          border-top: 1px solid #bfbfbf;
+          margin-top: 10px;
+          width: 100%;
+          box-sizing: border-box;
+        `;
+        footerEl.innerHTML = `
+          <div style="flex: 0 0 auto; display: flex; align-items: center;">
+            <img src="/adasoft-footer-badges.png" alt="Certifications" style="max-height: 26px; width: auto; display: block;" />
+          </div>
+          <div style="font-family: '${fontFamily}', 'TH Sarabun New', 'Sarabun', sans-serif; font-size: 11px; color: #555555;">
+            <span class="page-num-placeholder">${pageNum}</span>
+          </div>
+        `;
+      } else {
+        footerEl.style.cssText = `
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-family: '${fontFamily}', sans-serif;
+          font-size: 11px;
+          color: #64748b;
+          padding-top: 6px;
+          border-top: 1px solid ${theme.ruleColor};
+          margin-top: 12px;
+          width: 100%;
+          box-sizing: border-box;
+        `;
+        footerEl.innerHTML = `
+          <span>${escapeHtml(options.footerText || options.author || `Markdown Editor • ${dateStr}`)}</span>
+          <span class="page-num-placeholder">--</span>
+        `;
+      }
     }
     pageEl.appendChild(footerEl);
 
@@ -606,15 +678,34 @@ export async function generateDynamicPdfBlob(
     const pageNum = idx + 1;
     const pageNumSpan = footerEl.querySelector('.page-num-placeholder');
     if (pageNumSpan) {
-      let pageNumText = `${pageNum} / ${totalPages}`;
-      if (options.pageNumberFormat === 'th') {
-        pageNumText = `หน้า ${pageNum} จาก ${totalPages}`;
-      } else if (options.pageNumberFormat === 'en') {
-        pageNumText = `Page ${pageNum} of ${totalPages}`;
+      let pageNumText = `${pageNum}`;
+      if (!isTemplate) {
+        if (options.pageNumberFormat === 'th') {
+          pageNumText = `หน้า ${pageNum} จาก ${totalPages}`;
+        } else if (options.pageNumberFormat === 'en') {
+          pageNumText = `Page ${pageNum} of ${totalPages}`;
+        } else {
+          pageNumText = `${pageNum} / ${totalPages}`;
+        }
       }
       pageNumSpan.textContent = pageNumText;
     }
   });
+
+  // Wait for all header/footer images across all created pages to load
+  const allPageImages = pagesWrapper.querySelectorAll('img');
+  await Promise.all(
+    Array.from(allPageImages).map(
+      (img) =>
+        new Promise((resolve) => {
+          if (img.complete) resolve(null);
+          else {
+            img.onload = () => resolve(null);
+            img.onerror = () => resolve(null);
+          }
+        })
+    )
+  );
 
   stage.remove();
   await new Promise((r) => setTimeout(r, 200));

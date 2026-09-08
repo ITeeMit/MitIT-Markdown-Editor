@@ -44,6 +44,7 @@ export class ExportService {
       const pdfEngineOptions: PdfEngineOptions = {
         title: title,
         headerText: title,
+        useTemplate: options?.useTemplate !== undefined ? options.useTemplate : true,
         ...options,
       };
       const pdfBlob = await generateDynamicPdfBlob(content, pdfEngineOptions);
