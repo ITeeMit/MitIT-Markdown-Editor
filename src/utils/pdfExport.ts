@@ -76,9 +76,32 @@ function getPrintCSS(): string {
         widows: 3;
       }
       
-      ul, ol {
+      ul {
+        list-style-type: disc !important;
         margin: 12px 0 !important;
         padding-left: 24px !important;
+      }
+      
+      ol {
+        list-style-type: decimal !important;
+        margin: 12px 0 !important;
+        padding-left: 24px !important;
+      }
+
+      ul ul {
+        list-style-type: circle !important;
+        margin: 4px 0 !important;
+        padding-left: 20px !important;
+      }
+
+      ul ul ul {
+        list-style-type: square !important;
+        padding-left: 20px !important;
+      }
+
+      ol ol {
+        list-style-type: lower-alpha !important;
+        padding-left: 20px !important;
       }
       
       li {

@@ -277,6 +277,11 @@ export function getAdasoftDocumentCss(): string {
 
     p { margin: 0 0 8pt; line-height: 1.35; text-align: left; }
     ul, ol { margin: 0 0 8pt; padding-left: 24pt; }
+    ul { list-style-type: disc; }
+    ol { list-style-type: decimal; }
+    ul ul { list-style-type: circle; margin-top: 2pt; margin-bottom: 2pt; padding-left: 18pt; }
+    ul ul ul { list-style-type: square; padding-left: 18pt; }
+    ol ol { list-style-type: lower-alpha; padding-left: 18pt; }
     li { margin-bottom: 4pt; line-height: 1.35; }
 
     .export-container > :first-child {
@@ -454,6 +459,11 @@ export function getAdasoftAltChunkCss(): string {
     }
     p { margin: 0 0 8pt; line-height: 1.35; text-align: left; }
     ul, ol { margin: 0 0 8pt; padding-left: 24pt; }
+    ul { list-style-type: disc; }
+    ol { list-style-type: decimal; }
+    ul ul { list-style-type: circle; margin-top: 2pt; margin-bottom: 2pt; padding-left: 18pt; }
+    ul ul ul { list-style-type: square; padding-left: 18pt; }
+    ol ol { list-style-type: lower-alpha; padding-left: 18pt; }
     li { margin-bottom: 4pt; line-height: 1.35; word-break: break-word; }
 
     .export-container > :first-child {

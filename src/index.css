@@ -87,3 +87,24 @@ textarea:focus {
 .dark textarea:focus {
   outline-color: rgb(96 165 250);
 }
+
+/* Markdown preview list styling defaults */
+.preview-content ul,
+.markdown-preview ul {
+  list-style-type: disc;
+}
+
+.preview-content ol,
+.markdown-preview ol {
+  list-style-type: decimal;
+}
+
+.preview-content ul ul,
+.markdown-preview ul ul {
+  list-style-type: circle;
+}
+
+.preview-content ul ul ul,
+.markdown-preview ul ul ul {
+  list-style-type: square;
+}

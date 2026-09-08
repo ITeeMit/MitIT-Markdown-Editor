@@ -618,13 +618,68 @@ const OPreviewPanel: React.FC<OPreviewPanelProps> = ({ className = '' }) => {
         line-height: 1.75;
       }
       
-      .preview-content ul, .preview-content ol {
+      .preview-content ul {
+        list-style-type: disc !important;
         margin: 0.75rem 0;
         padding-left: 1.75rem;
       }
       
+      .preview-content ol {
+        list-style-type: decimal !important;
+        margin: 0.75rem 0;
+        padding-left: 1.75rem;
+      }
+      
+      .preview-content ul ul {
+        list-style-type: circle !important;
+        margin: 0.35rem 0;
+        padding-left: 1.5rem;
+      }
+      
+      .preview-content ul ul ul {
+        list-style-type: square !important;
+        margin: 0.25rem 0;
+        padding-left: 1.5rem;
+      }
+      
+      .preview-content ol ol {
+        list-style-type: lower-alpha !important;
+        margin: 0.35rem 0;
+        padding-left: 1.5rem;
+      }
+      
+      .preview-content ol ol ol {
+        list-style-type: lower-roman !important;
+        margin: 0.25rem 0;
+        padding-left: 1.5rem;
+      }
+      
       .preview-content li {
         margin: 0.35rem 0;
+        line-height: 1.75;
+      }
+
+      .preview-content li > p {
+        margin: 0.2rem 0;
+      }
+
+      .preview-content li::marker {
+        color: #4b5563;
+      }
+
+      .dark .preview-content li::marker {
+        color: #9ca3af;
+      }
+
+      .preview-content li.task-list-item,
+      .preview-content li:has(input[type="checkbox"]) {
+        list-style: none !important;
+        padding-left: 0;
+      }
+
+      .preview-content li input[type="checkbox"] {
+        margin-right: 0.5rem;
+        vertical-align: middle;
       }
       
       .preview-content blockquote {

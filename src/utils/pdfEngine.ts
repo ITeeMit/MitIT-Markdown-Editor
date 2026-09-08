@@ -178,13 +178,39 @@ function getPageCss(options: PdfEngineOptions, theme: ThemeColors, font: string)
       hyphens: auto;
     }
 
-    .pdf-sandbox-root ul, .pdf-sandbox-root ol {
+    .pdf-sandbox-root ul {
+      list-style-type: disc !important;
       margin: 0.5em 0;
       padding-left: 22px;
     }
 
+    .pdf-sandbox-root ol {
+      list-style-type: decimal !important;
+      margin: 0.5em 0;
+      padding-left: 22px;
+    }
+
+    .pdf-sandbox-root ul ul {
+      list-style-type: circle !important;
+      margin: 0.2em 0;
+      padding-left: 18px;
+    }
+
+    .pdf-sandbox-root ul ul ul {
+      list-style-type: square !important;
+      margin: 0.2em 0;
+      padding-left: 18px;
+    }
+
+    .pdf-sandbox-root ol ol {
+      list-style-type: lower-alpha !important;
+      margin: 0.2em 0;
+      padding-left: 18px;
+    }
+
     .pdf-sandbox-root li {
       margin: 0.3em 0;
+      line-height: 1.5;
     }
 
     .pdf-sandbox-root pre {
