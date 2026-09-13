@@ -22,7 +22,8 @@ import {
   FileTextIcon,
   GitBranch,
   Workflow,
-  FileImage
+  FileImage,
+  Globe
 } from 'lucide-react';
 import { ExportService } from '@/utils/exportUtils';
 import { useEditorStore, EditorMode } from '@/stores/editorStore';
@@ -257,9 +258,9 @@ const OToolbar: React.FC<OToolbarProps> = ({
     }
   };
 
-  const [exportModalFormat, setExportModalFormat] = useState<'pdf' | 'docx'>('pdf');
+  const [exportModalFormat, setExportModalFormat] = useState<'pdf' | 'docx' | 'html'>('pdf');
 
-  const handleOpenPdfModal = (format: 'pdf' | 'docx' = 'pdf') => {
+  const handleOpenPdfModal = (format: 'pdf' | 'docx' | 'html' = 'pdf') => {
     if ((content || '').trim().length === 0) {
       messageBox.warning(`ไม่มีเนื้อหาสำหรับ export ${format.toUpperCase()}`);
       return;
@@ -271,7 +272,23 @@ const OToolbar: React.FC<OToolbarProps> = ({
   const handlePdfModalExport = async (options: DocumentExportModalOptions) => {
     const docTitle = currentDocument?.title || 'Untitled';
     try {
-      if (options.exportFormat === 'docx') {
+      if (options.exportFormat === 'html') {
+        setIsExporting('html');
+        // If in Mermaid or PlantUML mode, wrap content in markdown fenced block
+        let sourceContent = content || '';
+        if (currentMode === 'mermaid') {
+          sourceContent = `\`\`\`mermaid\n${sourceContent}\n\`\`\``;
+        } else if (currentMode === 'plantuml') {
+          sourceContent = `\`\`\`plantuml\n${sourceContent}\n\`\`\``;
+        }
+
+        await ExportService.exportAsSingleHtml(
+          sourceContent,
+          docTitle,
+          `${docTitle}.html`,
+          options
+        );
+      } else if (options.exportFormat === 'docx') {
         setIsExporting('docx');
         await ExportService.exportAsDOCX(
           content || '',
@@ -678,6 +695,14 @@ const OToolbar: React.FC<OToolbarProps> = ({
               disabled={(content || '').trim().length === 0}
               loading={isExporting === 'docx'}
             />
+
+            <ToolbarButton
+              onClick={() => handleOpenPdfModal('html')}
+              icon={<Globe className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+              title="ส่งออกเป็น Single Interactive HTML (สารบัญ / ค้นหา / สลับธีมมืด-สว่าง / Diagrams)"
+              disabled={(content || '').trim().length === 0}
+              loading={isExporting === 'html'}
+            />
             
             <ToolbarButton
               onClick={handleExportExcel}
@@ -698,6 +723,13 @@ const OToolbar: React.FC<OToolbarProps> = ({
               title={`ส่งออก ${currentMode === 'mermaid' ? 'Mermaid' : 'PlantUML'} diagram เป็น SVG`}
               disabled={(content || '').trim().length === 0}
               loading={isExporting === 'diagram-svg'}
+            />
+            <ToolbarButton
+              onClick={() => handleOpenPdfModal('html')}
+              icon={<Globe className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+              title={`ส่งออก ${currentMode === 'mermaid' ? 'Mermaid' : 'PlantUML'} diagram เป็น Interactive HTML Viewer`}
+              disabled={(content || '').trim().length === 0}
+              loading={isExporting === 'html'}
             />
           </>
         )}

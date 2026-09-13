@@ -12,14 +12,15 @@ import {
   Sparkles,
   Layers,
   FileCode,
-  FileSpreadsheet,
+  Globe,
   Settings,
 } from 'lucide-react';
 import { PdfEngineOptions, THEME_PRESETS } from '@/utils/pdfEngine';
+import { HtmlExportOptions } from '@/utils/htmlExportEngine';
 
-export interface DocumentExportModalOptions extends PdfEngineOptions {
+export interface DocumentExportModalOptions extends PdfEngineOptions, HtmlExportOptions {
   useTemplate?: boolean;
-  exportFormat?: 'pdf' | 'docx';
+  exportFormat?: 'pdf' | 'docx' | 'html';
 }
 
 interface PdfExportModalProps {
@@ -27,7 +28,7 @@ interface PdfExportModalProps {
   onClose: () => void;
   onExport: (options: DocumentExportModalOptions) => Promise<void>;
   defaultTitle?: string;
-  initialFormat?: 'pdf' | 'docx';
+  initialFormat?: 'pdf' | 'docx' | 'html';
 }
 
 export const PdfExportModal: React.FC<PdfExportModalProps> = ({
@@ -41,7 +42,7 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
   const [isExporting, setIsExporting] = useState(false);
 
   // Form State
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'docx'>(initialFormat);
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'docx' | 'html'>(initialFormat);
 
   useEffect(() => {
     if (isOpen && initialFormat) {
@@ -62,6 +63,9 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
   const [headerText, setHeaderText] = useState('');
   const [footerText, setFooterText] = useState('');
   const [pageNumberFormat, setPageNumberFormat] = useState<'th' | 'en' | 'simple'>('th');
+  const [showToc, setShowToc] = useState(true);
+  const [showSearch, setShowSearch] = useState(true);
+  const [defaultThemeMode, setDefaultThemeMode] = useState<'light' | 'dark' | 'system'>('light');
 
   if (!isOpen) return null;
 
@@ -84,6 +88,9 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
         headerText: headerText || title,
         footerText,
         pageNumberFormat,
+        showToc,
+        showSearch,
+        defaultThemeMode,
         date: new Date().toLocaleDateString('th-TH'),
       });
       onClose();
@@ -107,11 +114,11 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
               <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 ส่งออกเอกสาร (Export Document)
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 font-medium">
-                  Smart Pagination
+                  {exportFormat === 'html' ? 'Interactive Standalone' : 'Smart Pagination'}
                 </span>
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                เลือกรูปแบบการส่งออก (PDF / DOCX) ตัวเลือก Template และการจัดวางประโยค
+                เลือกรูปแบบการส่งออก (PDF / Word DOCX / Single Interactive HTML) และตั้งค่าธีม
               </p>
             </div>
           </div>
@@ -134,7 +141,7 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
             }`}
           >
             <Layers className="w-4 h-4" />
-            รูปแบบ & Template
+            รูปแบบ & ฟอร์แมต
           </button>
           <button
             onClick={() => setActiveTab('theme')}
@@ -145,30 +152,34 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
             }`}
           >
             <Palette className="w-4 h-4" />
-            ธีม & การจัดประโยค
+            ธีม & ข้อมูลเอกสาร
           </button>
-          <button
-            onClick={() => setActiveTab('layout')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap shrink-0 transition-colors ${
-              activeTab === 'layout'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-            }`}
-          >
-            <Layout className="w-4 h-4" />
-            ขนาดกระดาษ & ระยะขอบ
-          </button>
-          <button
-            onClick={() => setActiveTab('headerFooter')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap shrink-0 transition-colors ${
-              activeTab === 'headerFooter'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-            }`}
-          >
-            <AlignLeft className="w-4 h-4" />
-            Header & Footer
-          </button>
+          {exportFormat !== 'html' && (
+            <>
+              <button
+                onClick={() => setActiveTab('layout')}
+                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap shrink-0 transition-colors ${
+                  activeTab === 'layout'
+                    ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                <Layout className="w-4 h-4" />
+                ขนาดกระดาษ & ระยะขอบ
+              </button>
+              <button
+                onClick={() => setActiveTab('headerFooter')}
+                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap shrink-0 transition-colors ${
+                  activeTab === 'headerFooter'
+                    ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                <AlignLeft className="w-4 h-4" />
+                Header & Footer
+              </button>
+            </>
+          )}
         </div>
 
         {/* Tab Contents */}
@@ -181,109 +192,189 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                 <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   ฟอร์แมตไฟล์ที่ต้องการส่งออก (Export File Format)
                 </label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
                     type="button"
                     onClick={() => setExportFormat('pdf')}
-                    className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
+                    className={`flex flex-col gap-2 p-3.5 rounded-xl border text-left transition-all ${
                       exportFormat === 'pdf'
                         ? 'border-blue-600 ring-2 ring-blue-500/20 bg-blue-50/40 dark:bg-blue-950/30'
-                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300'
+                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
                     }`}
                   >
-                    <div className="p-2.5 rounded-lg bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                      <FileText className="w-6 h-6" />
+                    <div className="flex items-center justify-between">
+                      <div className="p-2 rounded-lg bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      {exportFormat === 'pdf' && <Check className="w-4 h-4 text-blue-600" />}
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white">PDF Document (.pdf)</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">จัดหน้าแม่นยำ ไม่เพี้ยน รองรับการพิมพ์</div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">PDF Document</div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400">จัดหน้าแม่นยำ เหมาะสำหรับสั่งพิมพ์</div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setExportFormat('docx')}
-                    className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
+                    className={`flex flex-col gap-2 p-3.5 rounded-xl border text-left transition-all ${
                       exportFormat === 'docx'
                         ? 'border-blue-600 ring-2 ring-blue-500/20 bg-blue-50/40 dark:bg-blue-950/30'
-                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300'
+                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
                     }`}
                   >
-                    <div className="p-2.5 rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                      <FileCode className="w-6 h-6" />
+                    <div className="flex items-center justify-between">
+                      <div className="p-2 rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                        <FileCode className="w-5 h-5" />
+                      </div>
+                      {exportFormat === 'docx' && <Check className="w-4 h-4 text-blue-600" />}
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white">MS Word Document (.docx)</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">นำไปแก้ไขต่อใน Microsoft Word ได้สะดวก</div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">MS Word (.docx)</div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400">นำไปแก้ไขต่อในโปรแกรม Word ได้</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat('html')}
+                    className={`flex flex-col gap-2 p-3.5 rounded-xl border text-left transition-all ${
+                      exportFormat === 'html'
+                        ? 'border-blue-600 ring-2 ring-blue-500/20 bg-blue-50/40 dark:bg-blue-950/30'
+                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="p-2 rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        <Globe className="w-5 h-5" />
+                      </div>
+                      {exportFormat === 'html' && <Check className="w-4 h-4 text-blue-600" />}
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">Interactive HTML</div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400">เว็บไฟล์เดี่ยว สารบัญ/ค้นหา/สลับธีม</div>
                     </div>
                   </button>
                 </div>
               </div>
 
-              {/* Template Mode Options */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  ตัวเลือกการใช้ Template โครงร่าง
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Option A: No Template / Dynamic Engine */}
-                  <button
-                    type="button"
-                    onClick={() => setUseTemplate(false)}
-                    className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
-                      !useTemplate
-                        ? 'border-blue-600 ring-2 ring-blue-500/20 bg-blue-50/40 dark:bg-blue-950/30'
-                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-semibold">
-                          แนะนำ (Recommended)
-                        </span>
-                        {!useTemplate && <Check className="w-4 h-4 text-blue-600" />}
+              {/* Template Mode Options or HTML Feature Highlights */}
+              {exportFormat === 'html' ? (
+                <div className="space-y-4">
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    คุณสมบัติของ Interactive Single HTML
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+                      <div className="text-xs font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-emerald-600" />
+                        Standalone & Self-contained
                       </div>
-                      <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">
-                        ⚡ ไม่ใช้ Template (Smart Pagination Engine)
-                      </h4>
-                      <p className="text-xs text-gray-550 dark:text-gray-400 leading-relaxed">
-                        ปรับแต่งธีมสี แผงผังขอบกระดาษ ฟอนต์ภาษาไทย และการจัดวางประโยคได้อย่างอิสระ พร้อมระบบแบ่งหน้าอัจฉริยะไม่ให้ข้อความขาดครึ่ง
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                        รวม CSS, Script และ Diagrams ในไฟล์เดียว ส่งต่อทาง Email หรือเปิดดูบนคอมพิวเตอร์/มือถือได้ทันที
                       </p>
                     </div>
-                  </button>
 
-                  {/* Option B: Use Company Template */}
-                  <button
-                    type="button"
-                    onClick={() => setUseTemplate(true)}
-                    className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
-                      useTemplate
-                        ? 'border-blue-600 ring-2 ring-blue-500/20 bg-blue-50/40 dark:bg-blue-950/30'
-                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 font-semibold">
-                          Official Template
-                        </span>
-                        {useTemplate && <Check className="w-4 h-4 text-blue-600" />}
+                    <div className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+                      <div className="text-xs font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-1.5">
+                        <Palette className="w-4 h-4 text-blue-600" />
+                        Light / Dark Mode & Search
                       </div>
-                      <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">
-                        🏢 ใช้ Template มาตรฐาน (adasoft-template.docx)
-                      </h4>
-                      <p className="text-xs text-gray-550 dark:text-gray-400 leading-relaxed">
-                        ห่อเอกสารด้วยโครงร่างแม่แบบทางการของบริษัท พร้อมโลโก้ หัวกระดาษ และรูปเล่มมาตรฐาน Adasoft
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                        มีปุ่มสลับธีมมืด/สว่างในตัว, ระบบค้นหาคำและกระโดดตามตำแหน่ง, และแถบสารบัญนำทาง Scroll-spy
                       </p>
                     </div>
-                  </button>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 space-y-3">
+                    <div className="text-xs font-semibold text-gray-800 dark:text-gray-200">ตัวเลือกการแสดงผล HTML:</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showToc}
+                          onChange={(e) => setShowToc(e.target.checked)}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300"
+                        />
+                        <span>แถบสารบัญนำทาง (Sidebar TOC)</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showSearch}
+                          onChange={(e) => setShowSearch(e.target.checked)}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300"
+                        />
+                        <span>ช่องค้นหาข้อความ (In-page Search)</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    ตัวเลือกการใช้ Template โครงร่าง
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Option A: No Template / Dynamic Engine */}
+                    <button
+                      type="button"
+                      onClick={() => setUseTemplate(false)}
+                      className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                        !useTemplate
+                          ? 'border-blue-600 ring-2 ring-blue-500/20 bg-blue-50/40 dark:bg-blue-950/30'
+                          : 'border-gray-200 dark:border-gray-800 hover:border-gray-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-semibold">
+                            แนะนำ (Recommended)
+                          </span>
+                          {!useTemplate && <Check className="w-4 h-4 text-blue-600" />}
+                        </div>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">
+                          ⚡ ไม่ใช้ Template (Smart Pagination Engine)
+                        </h4>
+                        <p className="text-xs text-gray-550 dark:text-gray-400 leading-relaxed">
+                          ปรับแต่งธีมสี แผงผังขอบกระดาษ ฟอนต์ภาษาไทย และการจัดวางประโยคได้อย่างอิสระ พร้อมระบบแบ่งหน้าอัจฉริยะไม่ให้ข้อความขาดครึ่ง
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Option B: Use Company Template */}
+                    <button
+                      type="button"
+                      onClick={() => setUseTemplate(true)}
+                      className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                        useTemplate
+                          ? 'border-blue-600 ring-2 ring-blue-500/20 bg-blue-50/40 dark:bg-blue-950/30'
+                          : 'border-gray-200 dark:border-gray-800 hover:border-gray-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 font-semibold">
+                            Official Template
+                          </span>
+                          {useTemplate && <Check className="w-4 h-4 text-blue-600" />}
+                        </div>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">
+                          🏢 ใช้ Template มาตรฐาน (adasoft-template.docx)
+                        </h4>
+                        <p className="text-xs text-gray-550 dark:text-gray-400 leading-relaxed">
+                          ห่อเอกสารด้วยโครงร่างแม่แบบทางการของบริษัท พร้อมโลโก้ หัวกระดาษ และรูปเล่มมาตรฐาน Adasoft
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-blue-900 dark:text-blue-200">
-                  <span className="font-semibold">Smart Pagination Active</span>: ในโหมดไม่ใช้ Template เอกสารจะถูกคำนวณระยะบรรทัดและเว้นวรรคประโยคภาษาไทยให้อัตโนมัติ เพื่อความสวยงามสูงสุดในการอ่านและการพิมพ์
+                  <span className="font-semibold">Smart Layout Ready</span>: เอกสารถูกคำนวณระยะบรรทัด จัดวางประโยคภาษาไทยและ Diagram ให้อัตโนมัติ เพื่อความสวยงามสูงสุดในการแสดงผล
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import OToolbar from '@/components/OToolbar';
@@ -7,9 +7,11 @@ import OMarkdownEditor from '@/components/OMarkdownEditor';
 import OPreviewPanel from '@/components/OPreviewPanel';
 import ResizablePanel from '@/components/ResizablePanel';
 import CollapsibleSidebar from '@/components/CollapsibleSidebar';
+import DragDropOverlay from '@/components/DragDropOverlay';
 import { Toaster } from '@/components/ui/Toaster';
 import MessageBox from '@/components/ui/MessageBox';
 import { messageBox } from '@/utils/messageBox';
+import { processDroppedFiles } from '@/utils/fileImport';
 import { Menu, X } from 'lucide-react';
 
 const Home: React.FC = () => {
@@ -18,6 +20,8 @@ const Home: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [fontSize, setFontSize] = useState(14);
   const [fontFamily, setFontFamily] = useState('Inter, system-ui, sans-serif');
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dragCounterRef = useRef<number>(0);
 
   // Initialize database
   useEffect(() => {
@@ -259,6 +263,53 @@ Happy writing! 🚀`,
     }, 0);
   };
 
+  // Drag & Drop File Handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      dragCounterRef.current += 1;
+      setIsDraggingFile(true);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      dragCounterRef.current -= 1;
+      if (dragCounterRef.current <= 0) {
+        dragCounterRef.current = 0;
+        setIsDraggingFile(false);
+      }
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsDraggingFile(false);
+
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        try {
+          await processDroppedFiles(files);
+        } catch (error) {
+          console.error('Failed to import dropped files:', error);
+          await messageBox.error('เกิดข้อผิดพลาดในการนำเข้าไฟล์ที่ลากมาวาง');
+        }
+      }
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-900">
@@ -272,7 +323,16 @@ Happy writing! 🚀`,
 
   return (
     <ThemeProvider>
-      <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
+      <div 
+        className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900 relative"
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Drag & Drop Visual Overlay */}
+        <DragDropOverlay isVisible={isDraggingFile} />
+
         {/* Toolbar */}
         <OToolbar 
           fontSize={fontSize}

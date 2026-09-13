@@ -27,6 +27,7 @@ import { MarkdownDocument, Project, PROJECT_COLORS, RECENT_DOCUMENT_LIMIT } from
 import { DatabaseService } from '@/database';
 import { csvToMarkdownTable } from '@/utils/csvUtils';
 import { downloadProjectAsJson, downloadProjectAsMarkdownZip } from '@/utils/projectExport';
+import { processDroppedFiles } from '@/utils/fileImport';
 import ProjectColorPicker from '@/components/ProjectColorPicker';
 import { messageBox } from '@/utils/messageBox';
 
@@ -352,32 +353,15 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
     setNewDocTitle('');
   };
 
-  const handleFileUpload = (files: FileList | null, projectId?: string) => {
-    if (!files) return;
-    Array.from(files).forEach((file) => {
-      if (file.type === 'text/markdown' || file.name.endsWith('.md')) {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const fileContent = e.target?.result as string;
-          const fileName = file.name.replace(/\.md$/, '');
-          try {
-            await createDocument({
-              title: fileName,
-              content: fileContent,
-              tags: [],
-              mode: 'markdown',
-              folderId: projectId,
-            });
-          } catch (error) {
-            console.error('Failed to upload document:', error);
-            void messageBox.error(`Failed to upload ${file.name}`);
-          }
-        };
-        reader.readAsText(file);
-      } else {
-        void messageBox.warning(`${file.name} is not a markdown file. Please upload .md files only.`);
-      }
-    });
+  const handleFileUpload = async (files: FileList | null, projectId?: string) => {
+    if (!files || files.length === 0) return;
+    try {
+      await processDroppedFiles(files, projectId);
+      await refreshLists();
+    } catch (error) {
+      console.error('Failed to upload document:', error);
+      await messageBox.error('เกิดข้อผิดพลาดในการอัปโหลดไฟล์');
+    }
   };
 
   const renderDocActions = (doc: MarkdownDocument) => (
@@ -720,7 +704,17 @@ const OFileManager: React.FC<OFileManagerProps> = ({ className = '' }) => {
         </div>
       </div>
 
-      <input ref={fileInputRef} type="file" accept=".md,.markdown,text/markdown" multiple onChange={(e) => { handleFileUpload(e.target.files); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="hidden" />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".md,.markdown,.mdown,.mkdn,.txt,.text,.puml,.plantuml,.mermaid,.json,.csv,text/*"
+        multiple
+        onChange={(e) => {
+          handleFileUpload(e.target.files);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }}
+        className="hidden"
+      />
       <input
         ref={csvInputRef}
         type="file"

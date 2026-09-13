@@ -7,8 +7,43 @@ import {
   AdaExportMetadata,
 } from './adaExportPipeline';
 import { generateDynamicPdfBlob, PdfEngineOptions } from './pdfEngine';
+import { generateInteractiveHtmlString, HtmlExportOptions } from './htmlExportEngine';
 
 export class ExportService {
+  static async exportAsSingleHtml(
+    content: string,
+    title: string = 'document',
+    filename: string = 'document.html',
+    options?: HtmlExportOptions
+  ): Promise<void> {
+    if (!content?.trim()) {
+      throw new Error('ไม่มีเนื้อหาสำหรับ export HTML');
+    }
+
+    try {
+      const htmlOptions: HtmlExportOptions = {
+        title: title,
+        ...options,
+      };
+
+      const htmlContent = await generateInteractiveHtmlString(content, htmlOptions);
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+
+      const htmlName = filename.endsWith('.html') || filename.endsWith('.htm')
+        ? filename
+        : `${sanitizeExportFilename(title)}.html`;
+
+      const { saveAs } = await import('file-saver');
+      saveAs(blob, htmlName);
+      console.log('Interactive HTML exported successfully:', htmlName);
+    } catch (error) {
+      console.error('Failed to export HTML:', error);
+      if (error instanceof Error) {
+        throw new Error(`เกิดข้อผิดพลาดในการ export HTML: ${error.message}`);
+      }
+      throw new Error('เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุในการ export HTML');
+    }
+  }
   static exportAsMarkdown(content: string, filename: string = 'document.md'): void {
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
