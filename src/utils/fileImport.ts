@@ -10,20 +10,156 @@ export interface ProcessFileResult {
   imageMarkdown?: string;
 }
 
+const MERMAID_DIAGRAM_KEYWORDS = [
+  'graph',
+  'flowchart',
+  'sequencediagram',
+  'classdiagram',
+  'statediagram',
+  'statediagram-v2',
+  'erdiagram',
+  'gantt',
+  'pie',
+  'gitgraph',
+  'mindmap',
+  'timeline',
+  'quadrantchart',
+  'sankey-beta',
+  'block-beta',
+  'packet-beta',
+  'kanban',
+  'architecture-beta',
+  'requirementdiagram',
+  'zenuml',
+  'xychart-beta',
+  'c4context',
+  'c4container',
+  'c4component',
+  'c4dynamic',
+  'c4deployment',
+];
+
 /**
- * Detect appropriate Editor Mode based on file extension and content
+ * Check if the content is exclusively a PlantUML diagram.
+ * It must be a complete @start... to @end... block (or single plantuml code block)
+ * with no external markdown headings or prose before/after.
+ */
+function isPurePlantUml(content: string): boolean {
+  const trimmed = content.trim();
+  if (!trimmed) return false;
+
+  // Case 1: Wrapped exclusively in a single ```plantuml ... ``` code block
+  const codeBlockMatch = trimmed.match(/^```(?:plantuml|puml|uml)\s*([\s\S]*?)\s*```$/i);
+  if (codeBlockMatch) {
+    const inner = codeBlockMatch[1].trim();
+    // Inner must be plantuml syntax
+    return /^\s*@start(uml|mindmap|wbs|gantt|json|yaml|ditaa|dot|latex|chen)\b/i.test(inner) ||
+      /@end(uml|mindmap|wbs|gantt|json|yaml|ditaa|dot|latex|chen)\s*$/i.test(inner) ||
+      inner.length > 0;
+  }
+
+  // Case 2: Raw PlantUML content starting with @start... and ending with @end...
+  // Check that there is no markdown heading (# ) before @start or after @end
+  const startMatch = trimmed.match(/^\s*@start(uml|mindmap|wbs|gantt|json|yaml|ditaa|dot|latex|chen)\b/i);
+  const endMatch = trimmed.match(/@end(uml|mindmap|wbs|gantt|json|yaml|ditaa|dot|latex|chen)\s*$/i);
+
+  if (startMatch && endMatch) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if the content is exclusively a Mermaid diagram.
+ * It must be exclusively a mermaid code block or raw mermaid syntax with no external markdown prose/headings.
+ */
+function isPureMermaid(content: string): boolean {
+  const trimmed = content.trim();
+  if (!trimmed) return false;
+
+  // Case 1: Wrapped exclusively in a single ```mermaid ... ``` code block with nothing before/after
+  const singleCodeBlockMatch = trimmed.match(/^```mermaid\s*([\s\S]*?)\s*```$/i);
+  if (singleCodeBlockMatch) {
+    return true;
+  }
+
+  // If there are multiple code blocks or any code block mixed with text, it's not pure mermaid
+  if (trimmed.includes('```')) {
+    return false;
+  }
+
+  // Strip leading YAML frontmatter if present at the top (e.g. --- title: ... ---)
+  let normalized = trimmed;
+  if (normalized.startsWith('---')) {
+    const frontmatterEnd = normalized.indexOf('---', 3);
+    if (frontmatterEnd !== -1) {
+      normalized = normalized.slice(frontmatterEnd + 3).trim();
+    } else {
+      return false;
+    }
+  }
+
+  // Check if content has Markdown headings (# Heading), which mermaid raw diagrams do not use
+  const lines = normalized.split(/\r?\n/);
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (/^#{1,6}\s+\S+/.test(line)) {
+      return false;
+    }
+  }
+
+  // Find the first non-comment keyword line
+  let firstKeywordLine = '';
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith('%%')) continue;
+    firstKeywordLine = line;
+    break;
+  }
+
+  if (!firstKeywordLine) return false;
+
+  // Extract the first word before whitespace or delimiter
+  const firstWord = firstKeywordLine.split(/[\s(:{\[]/)[0].toLowerCase();
+  return MERMAID_DIAGRAM_KEYWORDS.includes(firstWord);
+}
+
+/**
+ * Detect appropriate Editor Mode based on file extension and content.
+ * Defaults to 'markdown' if content contains both markdown and diagrams,
+ * or if it has any markdown formatting.
+ * Only selects 'mermaid' or 'plantuml' if the file is exclusively a diagram.
  */
 export function detectEditorMode(filename: string, content: string): EditorMode {
-  const lowerName = filename.toLowerCase();
-  
-  if (lowerName.endsWith('.puml') || lowerName.endsWith('.plantuml') || /^\s*@startuml/im.test(content)) {
+  const lowerName = filename.toLowerCase().trim();
+  const trimmedContent = (content || '').trim();
+
+  // 1. Explicit diagram file extensions
+  if (lowerName.endsWith('.puml') || lowerName.endsWith('.plantuml') || lowerName.endsWith('.iuml')) {
     return 'plantuml';
   }
-  
-  if (lowerName.endsWith('.mermaid') || /^\s*(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|gitGraph)\b/im.test(content)) {
+  if (lowerName.endsWith('.mermaid') || lowerName.endsWith('.mmd')) {
     return 'mermaid';
   }
-  
+
+  // If empty content, default to markdown
+  if (!trimmedContent) {
+    return 'markdown';
+  }
+
+  // 2. Check if content is exclusively a PlantUML diagram
+  if (isPurePlantUml(trimmedContent)) {
+    return 'plantuml';
+  }
+
+  // 3. Check if content is exclusively a Mermaid diagram
+  if (isPureMermaid(trimmedContent)) {
+    return 'mermaid';
+  }
+
+  // 4. Default to Markdown mode (which properly renders full markdown + embedded mermaid/plantuml blocks)
   return 'markdown';
 }
 
